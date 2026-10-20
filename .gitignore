@@ -16,6 +16,7 @@
 *.sql.gz
 *.sql
 !database/sql/**/*.sql
+!dashboard-karangasem/database/sql/**/*.sql
 
 # Laravel runtime
 /storage/*.key

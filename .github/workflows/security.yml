@@ -117,6 +117,13 @@ jobs:
           coverage: none
           tools: composer:v2
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard-karangasem/package-lock.json
+
       - name: Map the Sail Postgres hostname to the service container
         run: echo "127.0.0.1 pgsql" | sudo tee -a /etc/hosts
 
@@ -146,6 +153,14 @@ jobs:
       - name: Install dependencies
         working-directory: dashboard-karangasem
         run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
+
+      - name: Install frontend dependencies
+        working-directory: dashboard-karangasem
+        run: npm ci
+
+      - name: Build frontend assets
+        working-directory: dashboard-karangasem
+        run: npm run build
 
       - name: Prepare environment
         working-directory: dashboard-karangasem

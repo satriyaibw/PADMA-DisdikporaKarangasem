@@ -47,7 +47,7 @@ class SessionCookieTest extends TestCase
 
     protected function sessionCookie(): string
     {
-        return $this->sessionCookieHeader($this->get('/'));
+        return $this->sessionCookieHeader($this->get('/dashboard'));
     }
 
     /**

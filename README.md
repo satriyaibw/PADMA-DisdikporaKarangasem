@@ -18,11 +18,13 @@ Arsitekturnya sengaja memisahkan tanggung jawab: **Metabase** menjadi mesin anal
 
 | Peran | Akses | URL |
 | --- | --- | --- |
-| Publik | Agregat non-sensitif, tanpa login | `/` |
+| Publik | Landing page + agregat non-sensitif, tanpa login | `/` dan `/dashboard` |
 | VIP | Agregat detail, login + masa aktif | `/vip/dashboard` |
 | Admin | Manajemen pengguna VIP via Filament | `/admin` |
 
 ## Fitur Utama
+
+**Landing Page Publik** — halaman `/` responsif dan SEO-ready: ringkasan data, profil singkat PADMA, kategori data, sebaran delapan kecamatan, metodologi, FAQ, dan tautan ke dashboard. Hanya diindeks saat `SEO_INDEXABLE=true`.
 
 **Dashboard Publik** — agregat peserta didik, rombongan belajar, dan PTK per kecamatan serta jenjang, dilayani public embed tanpa token.
 
@@ -84,7 +86,8 @@ Isi `.env` minimal: `ADMIN_EMAIL` dan `ADMIN_PASSWORD` (min. 12 karakter, huruf 
 ./vendor/bin/sail npm install && ./vendor/bin/sail npm run build
 ```
 
-- Dashboard publik — <http://localhost:8000>
+- Landing page — <http://localhost:8000/>
+- Dashboard publik — <http://localhost:8000/dashboard>
 - Panel admin — <http://localhost:8000/admin> (login + TOTP)
 - Metabase — <http://localhost:3000>
 
@@ -96,7 +99,7 @@ Tanpa Docker: `./vendor/bin/sail` dapat diganti `php artisan` dengan `DB_HOST=12
 
 ### Sebagai Publik
 
-Buka `/`. Dashboard agregat tampil langsung tanpa login, dilayani public embed Metabase. Rate limit 60 permintaan/menit.
+Buka `/` untuk landing page, lalu pilih **Jelajahi Dashboard Publik** menuju `/dashboard`. Dashboard agregat tampil langsung tanpa login, dilayani public embed Metabase. Landing dan dashboard dibatasi 60 permintaan/menit.
 
 ### Sebagai VIP
 
@@ -112,13 +115,38 @@ Buka `/`. Dashboard agregat tampil langsung tanpa login, dilayani public embed M
 3. Setiap aksi tercatat di tabel `admin_activity_logs` beserta aktor, perubahan, IP, dan user agent.
 4. Jalankan `audit:prune --days=365` untuk memangkas log lama (terjadwal otomatis pukul 03:00 WITA).
 
+## Landing Page & SEO
+
+Landing page di `/` memakai snapshot statistik yang direview dan disimpan sebagai JSON di `storage/app/landing/snapshot.json`, sedangkan dashboard di `/dashboard` menampilkan data live dari Metabase. Keduanya merujuk sumber Dapodik yang sama, tetapi hanya landing yang boleh masuk indeks mesin pencari. Pipeline `./scripts/landing-snapshot.sh review|apply|verify` wajib dijalankan saat setup dan setelah sinkronisasi Pusdatin; detailnya di [`docs/landing-snapshot.md`](./docs/landing-snapshot.md). Flag utamanya:
+
+| Env | Default | Perilaku |
+| --- | --- | --- |
+| `LANDING_ENABLED` | `true` | `false` mengalihkan `/` ke `/dashboard` sebagai jalur rollback cepat |
+| `SEO_INDEXABLE` | `false` | `true` mengizinkan indeks landing, `sitemap.xml`, dan `Allow: /` di `robots.txt` |
+| `GOOGLE_SITE_VERIFICATION` | kosong | Nilai verifikasi Search Console, dirender sebagai meta tag |
+| `BING_SITE_VERIFICATION` | kosong | Nilai verifikasi Bing Webmaster, dirender sebagai meta tag |
+
+Saat `SEO_INDEXABLE=false` (wajib untuk pengembangan dan Quick Tunnel), landing mengirim `X-Robots-Tag: noindex, nofollow, noarchive`, `robots.txt` menulis `Disallow: /`, dan `/sitemap.xml` membalas 404. `/dashboard`, `/login`, `/admin`, dan `/vip/*` selalu noindex.
+
+> **Catatan Quick Tunnel:** `trycloudflare.com` juga menambahkan `X-Robots-Tag: none` dari sisi Cloudflare. Tunnel tidak pernah menjadi bukti indexing — uji indeks hanya setelah domain final terpasang.
+
+Saat go-live di domain final:
+
+1. Set `APP_URL=https://domain-final` dan `SEO_INDEXABLE=true`.
+2. Isi `GOOGLE_SITE_VERIFICATION`/`BING_SITE_VERIFICATION` bila memakai Search Console.
+3. Jalankan `sail artisan optimize:clear && sail artisan optimize` lalu restart aplikasi.
+4. Daftarkan domain, submit `https://domain-final/sitemap.xml`.
+5. Biarkan HSTS tetap `false` sampai domain benar-benar stabil.
+
+`robots.txt` dan `sitemap.xml` adalah route Laravel dinamis. Jangan menambahkan `location` statis untuk keduanya di Nginx — lihat `deploy/nginx/dashboard.conf`.
+
 ## Testing & Verifikasi
 
 Jalankan dari `dashboard-karangasem/`. Test suite **wajib lewat Sail** — `php artisan test` langsung di host tidak merepresentasikan lingkungan/container yang benar.
 
 | Perintah | Tujuan | Hasil yang diharapkan |
 | --- | --- | --- |
-| `sail artisan test --compact` | Unit + feature test | `PASS  Tests: 370, Assertions: 787` |
+| `sail artisan test --compact` | Unit + feature test | `PASS  Tests: 401, Assertions: 917` |
 | `sail bin pint --test --format agent` | Gaya kode | Tanpa diff |
 | `sail composer audit` | Advisory dependensi | Tidak ada advisory |
 | `sail artisan security:scan-pii` | Pemindaian PII dashboard Publik/VIP | Exit 0, laporan di `storage/app/security/` |
@@ -143,6 +171,9 @@ Dua perintah terakhir memerlukan kredensial `METABASE_ADMIN_*` di `.env`. Ikuti 
 | VIP masih bisa login padahal lewat masa aktif | `sail artisan vip:deactivate-expired` lalu periksa cron |
 | `/up` balas 500 | `grep 'Health check gagal' storage/logs/laravel.log` |
 | Perubahan `.env` tidak terlihat | `sail artisan config:clear` |
+| Landing `/` dialihkan ke `/dashboard` | `LANDING_ENABLED=false` — set `true` lalu `optimize:clear` |
+| Canonical memakai localhost/tunnel | `APP_URL` belum domain final — perbaiki lalu `optimize` |
+| Landing tidak terindeks | `SEO_INDEXABLE=false` atau `robots.txt` statis di Nginx |
 | Scheduler tidak jalan | `crontab -l` — pastikan `schedule:run` tiap menit |
 | Backup gagal | `tail -n 20 storage/logs/backup.log` |
 
@@ -173,6 +204,7 @@ Panduan lengkap: **`deploy/backup/README.md`** dan `docs/runbook.md` §7.
 | --- | --- |
 | [`MasterPlan.md`](./MasterPlan.md) | Rencana global 7 fase & peta database nyata |
 | [`docs/runbook.md`](./docs/runbook.md) | Runbook operasional: arsitektur, restart, rotasi secret, backup, insiden |
+| [`docs/landing-snapshot.md`](./docs/landing-snapshot.md) | Review, apply, dan verifikasi snapshot statistik landing |
 | [`docs/security-checklist.md`](./docs/security-checklist.md) | Checklist keamanan Fase 5 & cara verifikasi tiap item |
 | [`docs/metabase-ids.md`](./docs/metabase-ids.md) | ID dashboard, konfigurasi embedding, prosedur rotasi secret |
 | [`docs/data-dictionary.md`](./docs/data-dictionary.md) | Arti tabel & kolom `backbone_client` |

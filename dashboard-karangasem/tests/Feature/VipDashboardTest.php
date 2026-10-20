@@ -46,7 +46,7 @@ class VipDashboardTest extends TestCase
      */
     public function test_guest_sees_public_dashboard_with_public_embed_url(): void
     {
-        $this->get('/')
+        $this->get('/dashboard')
             ->assertOk()
             ->assertViewIs('public.dashboard')
             ->assertViewHas('embedUrl', 'https://metabase.test/public/dashboard/65fb774f-493a-4bbc-b438-34bf5de4c174')
@@ -56,7 +56,7 @@ class VipDashboardTest extends TestCase
 
     public function test_public_dashboard_links_to_the_vip_login_page(): void
     {
-        $this->get('/')
+        $this->get('/dashboard')
             ->assertOk()
             ->assertSee(route('login'));
     }
@@ -68,7 +68,7 @@ class VipDashboardTest extends TestCase
         $this->withoutExceptionHandling();
         $this->expectException(RuntimeException::class);
 
-        $this->get('/');
+        $this->get('/dashboard');
     }
 
     /**
@@ -82,7 +82,7 @@ class VipDashboardTest extends TestCase
         $this->withoutExceptionHandling();
         $this->expectException(RuntimeException::class);
 
-        $this->get('/');
+        $this->get('/dashboard');
     }
 
     public function test_guest_is_redirected_to_login_from_vip_dashboard(): void

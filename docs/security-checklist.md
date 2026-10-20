@@ -105,14 +105,19 @@ Untuk **setiap** kartu, konfirmasikan:
 | `Permissions-Policy` (`camera`, `microphone`, `geolocation`, `payment`, `usb` dimatikan; `fullscreen` mengizinkan `self` + origin Metabase) | semua respons | `SecurityHeaders` |
 | `Cross-Origin-Opener-Policy: same-origin` | semua respons | `SecurityHeaders` |
 | `X-Frame-Options: DENY` | **hanya** respons tanpa CSP | `SecurityHeaders` |
-| `Content-Security-Policy` (`frame-src`, `object-src`, `base-uri`, `frame-ancestors`) | hanya rute embed `/` dan `/vip/*` | `MetabaseCspHeaders` |
+| `Content-Security-Policy` (`frame-src`, `object-src`, `base-uri`, `frame-ancestors`) | hanya rute embed `/dashboard` dan `/vip/*` | `MetabaseCspHeaders` |
+| `X-Robots-Tag: noindex, follow` | `/dashboard` | `RobotsHeaders` |
+| `X-Robots-Tag: noindex, nofollow` | `/login`, `/admin`, `/vip/*` | `RobotsHeaders` |
+| `X-Robots-Tag: noindex, nofollow, noarchive` | `/` saat `SEO_INDEXABLE=false` | `RobotsHeaders` |
 | `Strict-Transport-Security` | hanya request HTTPS **dan** `HSTS_ENABLED=true` | `StrictTransportSecurity` |
 
 **Catatan penting:** `Permissions-Policy` memuat origin Metabase pada allowlist
 `fullscreen`. Iframe dashboard bersifat cross-origin dan memakai
 `allowfullscreen`; menurut spesifikasi Permissions Policy, akses fitur iframe
 dipotong oleh kebijakan dokumen induk. Tanpa origin Metabase di allowlist,
-tombol fullscreen kartu di dalam embed tidak berfungsi.
+tombol fullscreen kartu di dalam embed tidak berfungsi. Direktif dipisahkan
+dengan **koma** sesuai sintaks Permissions Policy; titik koma adalah sintaks
+CSP dan membuat seluruh header ditolak browser.
 
 **CSP global sengaja tidak dipasang** — akan mematikan skrip inline
 Livewire/Alpine pada panel Filament. CSP tetap per-rute seperti Fase 4.
