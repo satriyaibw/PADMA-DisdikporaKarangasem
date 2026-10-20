@@ -2,8 +2,84 @@
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+@source '../js/**/*.js';
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-brand-50: #eef5ff;
+    --color-brand-100: #d9e8ff;
+    --color-brand-200: #b8d4ff;
+    --color-brand-300: #8bb8ff;
+    --color-brand-400: #5595f5;
+    --color-brand-500: #2c72d6;
+    --color-brand-600: #1559ae;
+    --color-brand-700: #0d5ca8;
+    --color-brand-800: #004482;
+    --color-brand-900: #063a6f;
+    --color-brand-950: #041b33;
+
+    --color-gold-50: #fff9e8;
+    --color-gold-100: #fdf0c4;
+    --color-gold-200: #f9df8a;
+    --color-gold-300: #f2c94c;
+    --color-gold-400: #e0bb45;
+    --color-gold-500: #d5a11a;
+    --color-gold-600: #b58312;
+    --color-gold-700: #8a5d08;
+
+    --color-ink-900: #0b1c2e;
+    --color-ink-950: #071c33;
+
+    --color-sand-50: #fbf8f1;
+}
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-white text-slate-700 antialiased;
+    }
+
+    :focus-visible {
+        @apply outline-2 outline-offset-2 outline-brand-700;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        html {
+            scroll-behavior: auto;
+        }
+
+        *,
+        ::before,
+        ::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+}
+
+@layer components {
+    .container-page {
+        @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+    }
+
+    .section-pad {
+        @apply py-16 sm:py-20 lg:py-28;
+    }
+
+    .landing-grid {
+        background-image:
+            linear-gradient(to right, rgba(13, 92, 168, 0.07) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(13, 92, 168, 0.07) 1px, transparent 1px);
+        background-size: 56px 56px;
+        -webkit-mask-image: radial-gradient(ellipse at 72% 0%, black 0%, transparent 72%);
+        mask-image: radial-gradient(ellipse at 72% 0%, black 0%, transparent 72%);
+    }
 }

@@ -260,7 +260,7 @@ Draft awal benar secara arah, tetapi memiliki **gap kritis** berikut. MasterPlan
 - [x] `GET /vip/embed-url` → JSON `{ "embed_url": ... }` + `Cache-Control: no-store` untuk refresh token tanpa reload.
 
 ### 8.4 Keamanan embed
-- [x] `Content-Security-Policy: frame-src 'self' {origin Metabase}` — per-rute via alias `metabase.csp` (rute `/`, `/vip/dashboard`, `/vip/embed-url`), tidak pernah global.
+- [x] `Content-Security-Policy: frame-src 'self' {origin Metabase}` — per-rute via alias `metabase.csp` (rute `/dashboard`, `/vip/dashboard`, `/vip/embed-url`), tidak pernah global.
 - [ ] Metabase: hanya endpoint `/embed/dashboard/*` yang boleh di-iframe; aktifkan `X-Frame-Options: SAMEORIGIN`/`ALLOW-FROM` seperlunya. *(koordinasi sisi Metabase — Fase 2/5)*
 - [x] Token TTL pendek (±10 menit) + halaman VIP memuat ulang token via polling `/vip/embed-url` (interval ±80% TTL, gagal-fetch ditangani diam).
 
@@ -316,7 +316,8 @@ Draft awal benar secara arah, tetapi memiliki **gap kritis** berikut. MasterPlan
 ### 11.1 Skenario wajib
 | ID | Skenario | Ekspektasi |
 |---|---|---|
-| T1 | Guest buka `/` | Dashboard publik tampil tanpa login |
+| T0 | Guest buka `/` | Landing page tampil tanpa login |
+| T1 | Guest buka `/dashboard` | Dashboard publik tampil tanpa login |
 | T2 | Guest buka `/vip/dashboard` | Redirect ke login |
 | T3 | VIP aktif login | Dashboard VIP tampil |
 | T4 | VIP `expires_at` di masa lalu | Ditolak + pesan; otomatis nonaktif setelah scheduler |

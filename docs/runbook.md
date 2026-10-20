@@ -1,7 +1,7 @@
 # Runbook Operasional — Dashboard Pendidikan Karangasem
 
 > **Fase 6 — Operasional & Pemeliharaan** (`MasterPlan.md` §10, Issue #11)
-> Terakhir diperbarui: 2026-10-10
+> Terakhir diperbarui: 2026-10-20
 
 Dokumen ini adalah deliverable Definition of Done Fase 6. Setiap langkah
 procedur di bawah **sudah dicoba** di lingkungan pengembangan dan hasilnya
@@ -44,6 +44,8 @@ Penonaktifan massal dilakukan job terjadwal — bukan saat request masuk.
 | Laporan PII | `dashboard-karangasem/storage/app/security/` |
 | Contoh cron | `deploy/cron/dashboard-schedule.cron`, `deploy/cron/dashboard-backup.cron` |
 | Nginx (contoh) | `deploy/nginx/dashboard.conf`, `deploy/nginx/metabase.conf` |
+| Landing page | `/` — stateless, diatur `LANDING_ENABLED` dan `SEO_INDEXABLE` |
+| Dashboard publik | `/dashboard` — iframe public embed Metabase |
 
 Menjalankan di lingkungan lokal:
 
@@ -53,6 +55,61 @@ cp .env.example .env          # isi ADMIN_PASSWORD & METABASE_*
 vendor/bin/sail up -d
 vendor/bin/sail artisan migrate --seed
 ```
+
+### 2.1 Landing page & SEO
+
+Landing page `/` adalah halaman stateless tanpa session/CSRF/cookie. Dashboard
+publik tetap di `/dashboard`. Flag utamanya:
+
+| Env | Default | Efek |
+|---|---|---|
+| `LANDING_ENABLED` | `true` | `false` mengalihkan `/` ke `/dashboard` (rollback cepat) |
+| `SEO_INDEXABLE` | `false` | `true` mengizinkan indeks landing, `sitemap.xml`, dan `Allow: /` |
+| `GOOGLE_SITE_VERIFICATION` | kosong | Meta verifikasi Search Console |
+| `BING_SITE_VERIFICATION` | kosong | Meta verifikasi Bing Webmaster |
+
+`SEO_INDEXABLE=false` **wajib** selama memakai localhost, Quick Tunnel, atau
+staging. Pada mode ini landing mengirim `X-Robots-Tag: noindex, nofollow,
+noarchive`, `robots.txt` berisi `Disallow: /`, dan `/sitemap.xml` membalas 404.
+Dashboard, login, admin, dan VIP selalu noindex.
+
+> **Quick Tunnel:** `trycloudflare.com` menambahkan `X-Robots-Tag: none` sendiri.
+> Jangan memakai tunnel sebagai bukti indexing; verifikasi hanya di domain final.
+
+Canonical dan OG image dibangun dari `APP_URL`, **bukan** Host header request.
+Karena itu `APP_URL` harus sudah berisi domain final sebelum indeks diaktifkan.
+
+Langkah go-live:
+
+```bash
+cd dashboard-karangasem
+# 1. .env: APP_URL=https://domain-final, SEO_INDEXABLE=true
+# 2. Isi GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION bila dipakai
+vendor/bin/sail artisan optimize:clear
+vendor/bin/sail artisan optimize
+# 3. Verifikasi
+curl -s https://domain-final/robots.txt
+curl -s -o /dev/null -w '%{http_code}\n' https://domain-final/sitemap.xml
+curl -sI https://domain-final/ | grep -i 'x-robots-tag'   # tidak boleh noindex
+```
+
+Setelah itu submit `https://domain-final/sitemap.xml` di Search Console. HSTS
+tetap `false` sampai domain benar-benar stabil. `robots.txt` dan `sitemap.xml`
+adalah route Laravel; jangan menambahkan `location` statis untuk keduanya di
+Nginx.
+
+Angka kartu landing tidak di-query saat request. Pipeline review/apply snapshot
+wajib dijalankan saat setup pertama dan setelah sinkronisasi Pusdatin:
+
+```bash
+./scripts/landing-snapshot.sh review
+# tinjau storage/app/landing/review-*.md
+./scripts/landing-snapshot.sh apply <hash-dari-review>
+./scripts/landing-snapshot.sh verify --strict
+```
+
+Detail definisi, checklist, dan troubleshooting ada di
+[`docs/landing-snapshot.md`](landing-snapshot.md).
 
 ---
 
@@ -304,6 +361,10 @@ hilang tanpa jejak.
 
 | Gejala | Penyebab | Aksi |
 |---|---|---|
+| Landing `/` mengalihkan ke `/dashboard` | `LANDING_ENABLED=false` | Set `true`, lalu `optimize:clear && optimize` |
+| Canonical memakai localhost/tunnel | `APP_URL` belum domain final | Perbaiki `APP_URL`, lalu `optimize:clear && optimize` |
+| Google tidak mengindeks landing | `SEO_INDEXABLE=false`, atau Nginx menyalip `robots.txt` | Aktifkan hanya di produksi; pastikan robots/sitemap dinamis |
+| `/sitemap.xml` membalas 404 | `SEO_INDEXABLE=false` | Normal di dev/tunnel; aktifkan setelah domain final |
 | Halaman dashboard kosong (iframe putih) | Metabase mati atau embed ditolak | `vendor/bin/sail artisan metabase:check-embedding` |
 | Iframe publik menampilkan "Unauthenticated" | `METABASE_PUBLIC_DASHBOARD_UUID` kosong/salah (public embed wajib UUID, bukan ID numerik) | Ambil ulang UUID: `SELECT public_uuid FROM report_dashboard WHERE id = <id>;` |
 | Login VIP mendarat di `/admin` lalu 403 | Sesi menyimpan `url.intended` dari kunjungan ke panel | Akses lagi lewat `/login`; tujuan kini difilter ke area `/vip/` |
@@ -394,6 +455,13 @@ cd dashboard-karangasem
 
 # Kesehatan aplikasi
 curl -s http://localhost:8000/up                      # 200 = sehat
+
+# Landing, dashboard, dan SEO
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8000/
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8000/dashboard
+curl -sI http://localhost:8000/ | grep -i x-robots-tag
+curl -s http://localhost:8000/robots.txt
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8000/sitemap.xml
 
 # healthcheck Metabase (dipakai docker healthcheck)
 curl -s http://localhost:3000/api/health

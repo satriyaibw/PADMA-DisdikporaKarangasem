@@ -3,6 +3,7 @@
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\CheckVipAccess;
 use App\Http\Middleware\MetabaseCspHeaders;
+use App\Http\Middleware\RobotsHeaders;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\StrictTransportSecurity;
 use App\Services\TrustedProxyList;
@@ -11,6 +12,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -20,6 +22,13 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function (): void {
+            // Landing dan SEO sengaja stateless: tanpa session, CSRF, atau
+            // cookie. Dengan begitu HTML dapat di-cache di browser/CDN dan
+            // tidak ada cookie sesi yang ikut terkirim ke pengunjung anonim.
+            Route::middleware(['throttle:60,1'])
+                ->group(base_path('routes/public.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Percaya pada header X-Forwarded-* hanya dari proxy yang dikonfigurasi
@@ -56,6 +65,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // dikelola per-rute oleh MetabaseCspHeaders agar skrip inline panel
         // Filament tetap berjalan.
         $middleware->append(SecurityHeaders::class);
+
+        // Kebijakan noindex untuk halaman yang tidak boleh masuk indeks
+        // (admin, login, VIP, dashboard). Landing hanya diberi noindex saat
+        // SEO_INDEXABLE=false, sehingga tunnel pengembangan tidak terindeks.
+        $middleware->append(RobotsHeaders::class);
 
         // Strict-Transport-Security. Header hanya dikirim untuk request HTTPS
         // dan hanya bila HSTS_ENABLED=true, sehingga domain tidak pernah

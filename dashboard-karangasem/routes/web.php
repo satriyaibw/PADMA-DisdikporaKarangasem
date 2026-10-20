@@ -5,7 +5,7 @@ use App\Http\Controllers\VipDashboardController;
 use App\Http\Controllers\VipLoginController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [PublicController::class, 'index'])
+Route::get('/dashboard', [PublicController::class, 'index'])
     ->middleware(['throttle:60,1', 'metabase.csp'])
     ->name('public.dashboard');
 

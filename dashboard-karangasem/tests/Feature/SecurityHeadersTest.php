@@ -9,6 +9,7 @@ use App\Providers\AppServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\URL;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Role;
 use Tests\Concerns\HasAdminUser;
@@ -44,14 +45,14 @@ class SecurityHeadersTest extends TestCase
 
     public function test_public_dashboard_sends_defensive_security_headers(): void
     {
-        $this->get('/')
+        $this->get('/dashboard')
             ->assertOk()
             ->assertHeader('X-Content-Type-Options', 'nosniff')
             ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
             ->assertHeader('Cross-Origin-Opener-Policy', 'same-origin')
             ->assertHeader(
                 'Permissions-Policy',
-                'camera=(); microphone=(); geolocation=(); payment=(); usb=(); fullscreen=(self "https://metabase.test")',
+                'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self "https://metabase.test")',
             );
     }
 
@@ -74,7 +75,7 @@ class SecurityHeadersTest extends TestCase
 
     public function test_page_with_content_security_policy_does_not_duplicate_frame_options(): void
     {
-        $this->get('/')
+        $this->get('/dashboard')
             ->assertOk()
             ->assertHeaderMissing('X-Frame-Options');
     }
@@ -100,14 +101,14 @@ class SecurityHeadersTest extends TestCase
 
     public function test_permissions_policy_allows_fullscreen_for_the_metabase_origin(): void
     {
-        $permissionsPolicy = (string) $this->get('/')->headers->get('Permissions-Policy');
+        $permissionsPolicy = (string) $this->get('/dashboard')->headers->get('Permissions-Policy');
 
         $this->assertStringContainsString('fullscreen=(self "https://metabase.test")', $permissionsPolicy);
     }
 
     public function test_permissions_policy_denies_camera_microphone_and_geolocation(): void
     {
-        $permissionsPolicy = (string) $this->get('/')->headers->get('Permissions-Policy');
+        $permissionsPolicy = (string) $this->get('/dashboard')->headers->get('Permissions-Policy');
 
         foreach (['camera', 'microphone', 'geolocation', 'payment', 'usb'] as $feature) {
             $this->assertStringContainsString($feature.'=()', $permissionsPolicy);
@@ -134,12 +135,12 @@ class SecurityHeadersTest extends TestCase
     public function test_permissions_policy_falls_back_to_self_when_metabase_origin_is_untrusted(): void
     {
         $this->assertSame(
-            'camera=(); microphone=(); geolocation=(); payment=(); usb=(); fullscreen=(self)',
+            'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)',
             $this->permissionsPolicyFor('javascript:alert(1)'),
         );
 
         $this->assertSame(
-            'camera=(); microphone=(); geolocation=(); payment=(); usb=(); fullscreen=(self)',
+            'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)',
             $this->permissionsPolicyFor(null),
         );
     }
@@ -154,7 +155,7 @@ class SecurityHeadersTest extends TestCase
     public function test_permissions_policy_rejects_metabase_hosts_that_could_break_out_of_the_header(string $siteUrl): void
     {
         $this->assertSame(
-            'camera=(); microphone=(); geolocation=(); payment=(); usb=(); fullscreen=(self)',
+            'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)',
             $this->permissionsPolicyFor($siteUrl),
             sprintf('Origin berbahaya tidak tertangani: %s', $siteUrl),
         );
@@ -199,12 +200,12 @@ class SecurityHeadersTest extends TestCase
         // Sama seperti MetabaseEmbedService: satu konfigurasi tidak boleh
         // dianggap valid di satu jalur dan tidak valid di jalur lain.
         $this->assertSame(
-            'camera=(); microphone=(); geolocation=(); payment=(); usb=(); fullscreen=(self)',
+            'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)',
             $this->permissionsPolicyFor('https://user:pass@metabase.test'),
         );
 
         $this->assertSame(
-            'camera=(); microphone=(); geolocation=(); payment=(); usb=(); fullscreen=(self)',
+            'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self)',
             $this->permissionsPolicyFor('https://user@metabase.test'),
         );
     }
@@ -212,19 +213,19 @@ class SecurityHeadersTest extends TestCase
     public function test_permissions_policy_keeps_valid_metabase_origains_including_port(): void
     {
         $this->assertSame(
-            'camera=(); microphone=(); geolocation=(); payment=(); usb=(); fullscreen=(self "http://localhost:3000")',
+            'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self "http://localhost:3000")',
             $this->permissionsPolicyFor('http://localhost:3000'),
         );
 
         // Port default tidak ikut ditulis; IPv6 tetap dipertahankan kurung
         // siku karena naked IPv6 tidak valid pada header.
         $this->assertSame(
-            'camera=(); microphone=(); geolocation=(); payment=(); usb=(); fullscreen=(self "https://metabase.test")',
+            'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self "https://metabase.test")',
             $this->permissionsPolicyFor('https://metabase.test:443/'),
         );
 
         $this->assertSame(
-            'camera=(); microphone=(); geolocation=(); payment=(); usb=(); fullscreen=(self "https://[::1]:3000")',
+            'camera=(), microphone=(), geolocation=(), payment=(), usb=(), fullscreen=(self "https://[::1]:3000")',
             $this->permissionsPolicyFor('https://[::1]:3000'),
         );
     }
@@ -306,6 +307,8 @@ class SecurityHeadersTest extends TestCase
     public function test_generated_urls_use_https_when_force_https_is_enabled(): void
     {
         config(['app.force_https' => false]);
+        URL::forceRootUrl('http://dash.test');
+        URL::forceScheme('http');
         (new AppServiceProvider($this->app))->boot();
 
         $this->assertStringStartsWith('http://', url('/'));

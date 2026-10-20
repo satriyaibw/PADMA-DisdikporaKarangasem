@@ -77,7 +77,9 @@ class SecurityHeaders
             self::DISABLED_FEATURES,
         );
 
-        return implode('; ', [...$features, 'fullscreen=('.$this->fullscreenAllowlist().')']);
+        // Permissions-Policy memakai daftar direktif yang dipisah koma.
+        // Titik koma (sintaks CSP) membuat seluruh header gagal di-parse.
+        return implode(', ', [...$features, 'fullscreen=('.$this->fullscreenAllowlist().')']);
     }
 
     /**

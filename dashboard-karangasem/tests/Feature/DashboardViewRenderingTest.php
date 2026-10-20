@@ -61,7 +61,7 @@ class DashboardViewRenderingTest extends TestCase
 
     public function test_the_public_dashboard_names_its_iframe(): void
     {
-        $response = $this->get('/');
+        $response = $this->get('/dashboard');
 
         $response->assertOk();
 
@@ -89,7 +89,7 @@ class DashboardViewRenderingTest extends TestCase
      */
     public function test_both_iframes_load_lazily(): void
     {
-        $public = $this->get('/')->getContent();
+        $public = $this->get('/dashboard')->getContent();
         $vip = $this->actingAs($this->vipUser())->get('/vip/dashboard')->getContent();
 
         $this->assertSame('lazy', $this->iframeAttribute($public, 'loading'));
@@ -103,7 +103,7 @@ class DashboardViewRenderingTest extends TestCase
      */
     public function test_both_iframes_set_a_restrictive_referrer_policy(): void
     {
-        $public = $this->get('/')->getContent();
+        $public = $this->get('/dashboard')->getContent();
         $vip = $this->actingAs($this->vipUser())->get('/vip/dashboard')->getContent();
 
         $this->assertSame('strict-origin-when-cross-origin', $this->iframeAttribute($public, 'referrerpolicy'));
@@ -118,7 +118,7 @@ class DashboardViewRenderingTest extends TestCase
     {
         $secret = (string) config('metabase.embedding_secret');
 
-        $public = $this->get('/')->getContent();
+        $public = $this->get('/dashboard')->getContent();
         $vip = $this->actingAs($this->vipUser())->get('/vip/dashboard')->getContent();
 
         $this->assertStringNotContainsString($secret, $public);
@@ -166,7 +166,7 @@ class DashboardViewRenderingTest extends TestCase
      */
     public function test_the_public_dashboard_carries_no_embed_token(): void
     {
-        $html = $this->get('/')->getContent();
+        $html = $this->get('/dashboard')->getContent();
 
         $this->assertStringNotContainsString('/embed/dashboard/', $html);
         $this->assertStringContainsString('/public/dashboard/', $html);

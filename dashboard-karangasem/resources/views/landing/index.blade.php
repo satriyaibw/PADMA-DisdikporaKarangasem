@@ -1,0 +1,15 @@
+@extends('layouts.landing')
+
+@section('content')
+    @include('landing.sections.hero', ['stats' => $stats])
+    @include('landing.sections.stats', ['stats' => $stats])
+    @include('landing.sections.about', ['organization' => $organization, 'stats' => $stats])
+    @include('landing.sections.data-categories', ['stats' => $stats])
+    @include('landing.sections.districts', ['districts' => $districts])
+    @include('landing.sections.features')
+    @include('landing.sections.how-it-works')
+    @include('landing.sections.preview', ['stats' => $stats, 'districts' => $districts])
+    @include('landing.sections.methodology', ['period' => $period, 'updatedAtDisplay' => $updatedAtDisplay])
+    @include('landing.sections.faq', ['faq' => $faq])
+    @include('landing.sections.cta')
+@endsection

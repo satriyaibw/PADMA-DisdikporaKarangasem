@@ -8,12 +8,15 @@ use Tests\TestCase;
 class ExampleTest extends TestCase
 {
     /**
-     * A basic test example.
+     * Halaman utama kini adalah landing page, bukan dashboard publik.
      */
     public function test_the_application_returns_a_successful_response(): void
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200);
+        $response->assertOk()
+            ->assertSee('lang="id"', false)
+            ->assertSee('Data pendidikan Karangasem')
+            ->assertSee('Jelajahi Dashboard Publik');
     }
 }

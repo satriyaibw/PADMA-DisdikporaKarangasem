@@ -44,13 +44,14 @@ langsung di host:
 vendor/bin/sail artisan test --compact
 ```
 
-Status terakhir Fase 7: **370 test, 787 assertion, hijau.**
+Status terakhir: **401 test, 917 assertion, hijau.**
 
 ### Pemetaan skenario ke test
 
 | ID | Skenario | Otomatis? | Test |
 | --- | --- | --- | --- |
-| T1 | Guest membuka `/` | Ya | `VipDashboardTest::test_guest_sees_public_dashboard_with_public_embed_url` |
+| T0 | Guest membuka `/` (landing) | Ya | `LandingPageTest::test_landing_page_renders_the_primary_sections` |
+| T1 | Guest membuka `/dashboard` | Ya | `VipDashboardTest::test_guest_sees_public_dashboard_with_public_embed_url` |
 | T2 | Guest membuka `/vip/dashboard` | Ya | `VipAccessTest::test_guest_is_redirected_to_login` |
 | T3 | VIP aktif | Ya | `VipAccessTest::test_active_vip_can_access_dashboard` |
 | T4 | VIP kedaluwarsa | Ya | `VipAccessTest::test_expired_vip_is_logged_out_and_redirected` |
@@ -98,7 +99,7 @@ staging yang terhubung ke data nyata.
 
 | # | Langkah | Ekspektasi | Hasil |
 | --- | --- | --- | --- |
-| 10.1 | Buka dashboard publik 3x, catat waktu load tiap opening | < 2 detik; opening ke-2/3 lebih cepat (cache) | ⬜ |
+| 10.1 | Buka `/dashboard` 3x, catat waktu load tiap opening | < 2 detik; opening ke-2/3 lebih cepat (cache) | ⬜ |
 | 10.2 | Buka dashboard VIP 2x | ~ < 3 detik | ⬜ |
 | 10.3 | Buka dashboard yang sama di 2 tab | Konsisten, tidak ada timeout | ⬜ |
 | 10.4 | `docker exec` container metabase → cek cache hit | Cache aktif | ⬜ |
