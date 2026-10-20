@@ -4,16 +4,19 @@
 -- Query ini HANYA membaca (READ ONLY) dan menghasilkan satu objek JSON yang
 -- dipakai oleh `php artisan landing:snapshot review|apply`.
 --
--- Definis default:
+-- Definisi default:
 --   * Wilayah          : Kabupaten Karangasem (prefix kode 2208)
 --   * Sekolah          : Soft_delete = 0 AND keaktifan = 1
---   * Rombel           : Soft_delete = 0, semester terbaru (atau :semester)
---   * Peserta didik    : distinct anggota rombel pada rombel terpilih
---   * PTK              : distinct PTK pada tahun ajaran terbaru
+--   * Rombel           : Soft_delete = 0, jenis_rombel = 1 (Kelas), semester
+--                        terbaru (atau :semester)
+--   * Peserta didik    : NISN unik valid 10 digit pada rombel Kelas terpilih
+--   * PTK              : penugasan induk (ptk_induk = 1), tidak keluar, aktif
+--                        minimal satu bulan semester atau TMT sejak awal
+--                        bulan semester sampai tanggal snapshot
 --   * Kecamatan        : 8 kecamatan di ref.mst_wilayah (level 3)
 --
--- Semua pilihan filter sengaja diletakkan di CTE `scoped_schools` dan
--- `scoped_rombels` agar seluruh kartu memakai definisi yang sama.
+-- NISN hanya dibaca untuk deduplikasi. Output query tetap berupa agregat dan
+-- tidak memuat NISN, nama, NIK, atau data pribadi lain.
 --
 -- Jalankan dengan psql:
 --   psql -v semester= -At -f database/sql/landing_snapshot.sql
@@ -32,12 +35,19 @@ SET LOCAL enable_nestloop = off;
 
 WITH params AS MATERIALIZED (
     SELECT
-        COALESCE(
-            NULLIF(:'semester', ''),
-            (SELECT max(semester_id)::text
-             FROM dbo.rombongan_belajar
-             WHERE "Soft_delete" = 0)
-        ) AS semester_id
+        s.semester_id,
+        s.semester,
+        s.tanggal_mulai,
+        (now() AT TIME ZONE 'Asia/Makassar')::date AS snapshot_date
+    FROM ref.semester s
+    WHERE s.semester_id = COALESCE(
+        NULLIF(:'semester', ''),
+        (SELECT max(semester_id)::text
+         FROM dbo.rombongan_belajar
+         WHERE "Soft_delete" = 0)
+    )
+    ORDER BY s.semester_id DESC
+    LIMIT 1
 ),
 regions AS MATERIALIZED (
     SELECT
@@ -68,10 +78,11 @@ scoped_schools AS MATERIALIZED (
     WHERE s."Soft_delete" = 0
       AND s.keaktifan = 1
 ),
-scoped_rombels AS MATERIALIZED (
+scoped_all_rombels AS MATERIALIZED (
     SELECT
         r.rombongan_belajar_id,
         r.sekolah_id,
+        r.jenis_rombel,
         ss.kode_wilayah,
         ss.kecamatan
     FROM dbo.rombongan_belajar r
@@ -81,26 +92,57 @@ scoped_rombels AS MATERIALIZED (
     WHERE r."Soft_delete" = 0
       AND r.semester_id = p.semester_id
 ),
-unscoped_rombels AS MATERIALIZED (
-    SELECT count(*)::bigint AS total
-    FROM dbo.rombongan_belajar r
-    JOIN dbo.sekolah s
-      ON s.sekolah_id = r.sekolah_id
-    JOIN regions rg
-      ON rg.kode_wilayah = btrim(substring(s.kode_wilayah FROM 1 FOR 6))
-    CROSS JOIN params p
-    WHERE r."Soft_delete" = 0
-      AND r.semester_id = p.semester_id
+scoped_rombels AS MATERIALIZED (
+    SELECT *
+    FROM scoped_all_rombels
+    WHERE jenis_rombel = 1
+),
+scoped_student_ids AS MATERIALIZED (
+    SELECT DISTINCT a.peserta_didik_id
+    FROM dbo.anggota_rombel a
+    JOIN scoped_rombels rb
+      ON rb.rombongan_belajar_id = a.rombongan_belajar_id
+    WHERE a."Soft_delete" = 0
+),
+student_identity AS MATERIALIZED (
+    SELECT
+        si.peserta_didik_id,
+        btrim(pd.nisn) AS nisn
+    FROM scoped_student_ids si
+    LEFT JOIN dbo.peserta_didik pd
+      ON pd.peserta_didik_id = si.peserta_didik_id
 ),
 scoped_students AS MATERIALIZED (
     SELECT DISTINCT
-        a.peserta_didik_id,
+        btrim(pd.nisn) AS nisn,
         rb.kode_wilayah,
         rb.kecamatan
     FROM dbo.anggota_rombel a
     JOIN scoped_rombels rb
       ON rb.rombongan_belajar_id = a.rombongan_belajar_id
+    JOIN dbo.peserta_didik pd
+      ON pd.peserta_didik_id = a.peserta_didik_id
     WHERE a."Soft_delete" = 0
+      AND btrim(pd.nisn) ~ '^[0-9]{10}$'
+),
+nisn_quality AS MATERIALIZED (
+    SELECT
+        count(*) FILTER (WHERE nisn IS NULL OR nisn = '') AS blank,
+        count(*) FILTER (WHERE nisn IS NOT NULL AND nisn <> '' AND nisn !~ '^[0-9]{10}$') AS invalid,
+        count(*) FILTER (WHERE nisn ~ '^[0-9]{10}$') AS valid_ids
+    FROM student_identity
+),
+valid_nisn AS MATERIALIZED (
+    SELECT nisn, count(*) AS ids
+    FROM student_identity
+    WHERE nisn ~ '^[0-9]{10}$'
+    GROUP BY nisn
+),
+nisn_duplicates AS MATERIALIZED (
+    SELECT
+        count(*) FILTER (WHERE ids > 1) AS duplicate_values,
+        coalesce(sum(ids - 1) FILTER (WHERE ids > 1), 0) AS extra_ids
+    FROM valid_nisn
 ),
 rombel_members AS MATERIALIZED (
     SELECT count(*)::bigint AS total
@@ -114,17 +156,115 @@ latest_ptk_year AS MATERIALIZED (
     FROM dbo.ptk_terdaftar
     WHERE "Soft_delete" = 0
 ),
+ptk_all AS MATERIALIZED (
+    SELECT
+        pt.ptk_id,
+        pt.ptk_induk,
+        pt.sekolah_id,
+        ss.kode_wilayah,
+        ss.kecamatan,
+        pt.jenis_keluar_id,
+        pt.tgl_ptk_keluar,
+        (
+            CASE
+                WHEN p.semester = 1 THEN greatest(
+                    coalesce(pt.aktif_bulan_07, 0),
+                    coalesce(pt.aktif_bulan_08, 0),
+                    coalesce(pt.aktif_bulan_09, 0),
+                    coalesce(pt.aktif_bulan_10, 0),
+                    coalesce(pt.aktif_bulan_11, 0),
+                    coalesce(pt.aktif_bulan_12, 0)
+                )
+                ELSE greatest(
+                    coalesce(pt.aktif_bulan_01, 0),
+                    coalesce(pt.aktif_bulan_02, 0),
+                    coalesce(pt.aktif_bulan_03, 0),
+                    coalesce(pt.aktif_bulan_04, 0),
+                    coalesce(pt.aktif_bulan_05, 0),
+                    coalesce(pt.aktif_bulan_06, 0)
+                )
+            END = 1
+        ) AS active_semester,
+        (
+            coalesce(pt.tmt_tugas, pt.tanggal_surat_tugas)
+                BETWEEN p.tanggal_mulai AND p.snapshot_date
+        ) AS tmt_semester,
+        -- TMT baru sejak awal bulan semester sampai snapshot ikut dihitung.
+        (
+            coalesce(pt.tmt_tugas, pt.tanggal_surat_tugas)
+                BETWEEN date_trunc('month', p.tanggal_mulai)::date AND p.snapshot_date
+        ) AS tmt_semester_month
+    FROM dbo.ptk_terdaftar pt
+    JOIN scoped_schools ss
+      ON ss.sekolah_id = pt.sekolah_id
+    CROSS JOIN params p
+    CROSS JOIN latest_ptk_year y
+    WHERE pt."Soft_delete" = 0
+      AND pt.tahun_ajaran_id = y.tahun_ajaran_id
+),
+scoped_ptk_base AS MATERIALIZED (
+    SELECT *
+    FROM ptk_all
+    WHERE ptk_induk = 1
+),
 scoped_ptk AS MATERIALIZED (
     SELECT DISTINCT
+        ptk_id,
+        kode_wilayah,
+        kecamatan
+    FROM scoped_ptk_base
+    WHERE jenis_keluar_id IS NULL
+      AND tgl_ptk_keluar IS NULL
+      AND (active_semester OR tmt_semester_month)
+),
+ptk_quality AS MATERIALIZED (
+    SELECT
+        count(DISTINCT ptk_id) AS induk_total,
+        count(DISTINCT ptk_id) FILTER (
+            WHERE jenis_keluar_id IS NULL
+              AND tgl_ptk_keluar IS NULL
+              AND active_semester
+        ) AS active_semester,
+        count(DISTINCT ptk_id) FILTER (
+            WHERE jenis_keluar_id IS NULL
+              AND tgl_ptk_keluar IS NULL
+              AND (active_semester OR tmt_semester)
+        ) AS active_semester_or_tmt,
+        count(DISTINCT ptk_id) FILTER (
+            WHERE jenis_keluar_id IS NULL
+              AND tgl_ptk_keluar IS NULL
+              AND (active_semester OR tmt_semester_month)
+        ) AS active_with_tmt_month
+    FROM scoped_ptk_base
+),
+ptk_no_induk AS MATERIALIZED (
+    SELECT
         p.ptk_id,
-        ss.kode_wilayah,
-        ss.kecamatan
-    FROM dbo.ptk_terdaftar p
-    JOIN scoped_schools ss
-      ON ss.sekolah_id = p.sekolah_id
-    CROSS JOIN latest_ptk_year y
-    WHERE p."Soft_delete" = 0
-      AND p.tahun_ajaran_id = y.tahun_ajaran_id
+        bool_or(
+            p.jenis_keluar_id IS NULL
+            AND p.tgl_ptk_keluar IS NULL
+            AND p.active_semester
+        ) AS active_semester,
+        bool_or(
+            p.jenis_keluar_id IS NULL
+            AND p.tgl_ptk_keluar IS NULL
+            AND (p.active_semester OR p.tmt_semester_month)
+        ) AS active_with_tmt_month
+    FROM ptk_all p
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM ptk_all i
+        WHERE i.ptk_id = p.ptk_id
+          AND i.ptk_induk = 1
+    )
+    GROUP BY p.ptk_id
+),
+ptk_no_induk_quality AS MATERIALIZED (
+    SELECT
+        count(*) AS total,
+        count(*) FILTER (WHERE active_semester) AS active_semester,
+        count(*) FILTER (WHERE active_with_tmt_month) AS active_with_tmt_month
+    FROM ptk_no_induk
 ),
 source_sync AS MATERIALIZED (
     SELECT greatest(
@@ -150,7 +290,7 @@ district_rombels AS MATERIALIZED (
 district_students AS MATERIALIZED (
     SELECT
         kode_wilayah,
-        count(DISTINCT peserta_didik_id)::bigint AS students
+        count(DISTINCT nisn)::bigint AS students
     FROM scoped_students
     GROUP BY kode_wilayah
 ),
@@ -194,6 +334,17 @@ SELECT json_build_object(
         'region_prefix', '2208',
         'school_active_only', true,
         'rombel_active_only', true,
+        'rombel_type', 'kelas',
+        'rombel_types', json_build_array(1),
+        'student_identity', 'nisn_valid_10',
+        'student_scope', 'kelas',
+        'ptk_assignment', 'induk',
+        'ptk_active_rule', 'semester_or_tmt_since_month_start',
+        'ptk_tmt_from', (
+            SELECT to_char(date_trunc('month', tanggal_mulai)::date, 'YYYY-MM-DD')
+            FROM params
+        ),
+        'ptk_tmt_to', (SELECT to_char(snapshot_date, 'YYYY-MM-DD') FROM params),
         'semester_id', (SELECT semester_id FROM params),
         'forms', (
             SELECT json_agg(
@@ -211,7 +362,7 @@ SELECT json_build_object(
     ),
     'cards', json_build_object(
         'active_schools', (SELECT count(*)::bigint FROM scoped_schools),
-        'students', (SELECT count(DISTINCT peserta_didik_id)::bigint FROM scoped_students),
+        'students', (SELECT count(DISTINCT nisn)::bigint FROM scoped_students),
         'rombels', (SELECT count(*)::bigint FROM scoped_rombels),
         'ptk', (SELECT count(DISTINCT ptk_id)::bigint FROM scoped_ptk)
     ),
@@ -233,18 +384,29 @@ SELECT json_build_object(
         'all_schools', (SELECT total FROM all_schools),
         'active_schools', (SELECT count(*)::bigint FROM scoped_schools),
         'schools_with_rombels', (SELECT count(DISTINCT sekolah_id)::bigint FROM scoped_rombels),
-        'all_rombels_latest', (SELECT total FROM unscoped_rombels),
-        'scoped_rombels_latest', (SELECT count(*)::bigint FROM scoped_rombels),
+        'all_rombels_latest', (SELECT count(*)::bigint FROM scoped_all_rombels),
+        'class_rombels_latest', (SELECT count(*)::bigint FROM scoped_rombels),
         'rombel_members', (SELECT total FROM rombel_members),
-        'student_members', (SELECT count(*)::bigint FROM scoped_students),
-        'unique_students', (SELECT count(DISTINCT peserta_didik_id)::bigint FROM scoped_students),
-        'district_student_sum', (SELECT coalesce(sum(students), 0)::bigint FROM district_counts)
+        'students_by_id', (SELECT count(*)::bigint FROM student_identity),
+        'unique_students', (SELECT count(DISTINCT nisn)::bigint FROM scoped_students),
+        'district_student_sum', (SELECT coalesce(sum(students), 0)::bigint FROM district_counts),
+        'nisn_blank', (SELECT blank FROM nisn_quality),
+        'nisn_invalid', (SELECT invalid FROM nisn_quality),
+        'nisn_valid_ids', (SELECT valid_ids FROM nisn_quality),
+        'nisn_duplicate_values', (SELECT duplicate_values FROM nisn_duplicates),
+        'nisn_duplicate_extra_ids', (SELECT extra_ids FROM nisn_duplicates),
+        'ptk_induk_total', (SELECT induk_total FROM ptk_quality),
+        'ptk_active_semester', (SELECT active_semester FROM ptk_quality),
+        'ptk_active_semester_or_tmt', (SELECT active_semester_or_tmt FROM ptk_quality),
+        'ptk_active_with_tmt_month', (SELECT active_with_tmt_month FROM ptk_quality),
+        'ptk_no_induk_total', (SELECT total FROM ptk_no_induk_quality),
+        'ptk_no_induk_active', (SELECT active_with_tmt_month FROM ptk_no_induk_quality)
     ),
     'sources', json_build_object(
         'last_sync', (SELECT last_sync FROM source_sync),
         'schools', 'dbo.sekolah',
         'rombels', 'dbo.rombongan_belajar',
-        'students', 'dbo.anggota_rombel',
+        'students', 'dbo.anggota_rombel + dbo.peserta_didik',
         'ptk', 'dbo.ptk_terdaftar'
     )
 ) AS snapshot;

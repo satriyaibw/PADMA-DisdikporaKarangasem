@@ -87,27 +87,27 @@ return [
     'stats' => [
         [
             'label' => 'Satuan Pendidikan',
-            'value' => 843,
-            'display' => '843',
-            'note' => 'SD, SMP, SMA, SMK, dan SLB',
+            'value' => 604,
+            'display' => '604',
+            'note' => 'satuan pendidikan aktif (formal & nonformal)',
         ],
         [
             'label' => 'Peserta Didik',
-            'value' => 68307,
-            'display' => '68.307',
-            'note' => 'peserta didik unik',
+            'value' => 64086,
+            'display' => '64.086',
+            'note' => 'peserta didik unik (NISN valid 10 digit, kelas aktif)',
         ],
         [
             'label' => 'Rombongan Belajar',
-            'value' => 5077,
-            'display' => '5.077',
-            'note' => 'kelas dan kelompok belajar',
+            'value' => 3482,
+            'display' => '3.482',
+            'note' => 'kelas aktif pada semester terbaru',
         ],
         [
             'label' => 'Pendidik & Tenaga Kependidikan',
-            'value' => 5105,
-            'display' => '5.105',
-            'note' => 'PTK terdaftar',
+            'value' => 4044,
+            'display' => '4.044',
+            'note' => 'PTK aktif dengan penugasan induk',
         ],
     ],
 
@@ -118,14 +118,14 @@ return [
     */
 
     'districts' => [
-        ['name' => 'Karangasem', 'schools' => 159, 'rombel' => 1063, 'students' => 14928],
-        ['name' => 'Kubu', 'schools' => 113, 'rombel' => 757, 'students' => 11362],
-        ['name' => 'Abang', 'schools' => 146, 'rombel' => 789, 'students' => 10933],
-        ['name' => 'Manggis', 'schools' => 99, 'rombel' => 538, 'students' => 7330],
-        ['name' => 'Bebandem', 'schools' => 99, 'rombel' => 586, 'students' => 7024],
-        ['name' => 'Rendang', 'schools' => 77, 'rombel' => 519, 'students' => 6215],
-        ['name' => 'Selat', 'schools' => 92, 'rombel' => 475, 'students' => 6128],
-        ['name' => 'Sidemen', 'schools' => 58, 'rombel' => 350, 'students' => 4402],
+        ['name' => 'Karangasem', 'schools' => 115, 'rombel' => 724, 'students' => 13967, 'ptk' => 859],
+        ['name' => 'Kubu', 'schools' => 80, 'rombel' => 527, 'students' => 10715, 'ptk' => 657],
+        ['name' => 'Abang', 'schools' => 94, 'rombel' => 539, 'students' => 10465, 'ptk' => 608],
+        ['name' => 'Manggis', 'schools' => 77, 'rombel' => 412, 'students' => 6903, 'ptk' => 445],
+        ['name' => 'Bebandem', 'schools' => 74, 'rombel' => 377, 'students' => 6569, 'ptk' => 428],
+        ['name' => 'Rendang', 'schools' => 60, 'rombel' => 334, 'students' => 5594, 'ptk' => 399],
+        ['name' => 'Selat', 'schools' => 60, 'rombel' => 318, 'students' => 5634, 'ptk' => 387],
+        ['name' => 'Sidemen', 'schools' => 44, 'rombel' => 251, 'students' => 4245, 'ptk' => 261],
     ],
 
     /*

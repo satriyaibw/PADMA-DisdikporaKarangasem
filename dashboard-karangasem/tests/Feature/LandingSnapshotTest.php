@@ -76,6 +76,32 @@ class LandingSnapshotTest extends TestCase
         $this->assertNotEmpty($service->validate($snapshot));
     }
 
+    public function test_validation_requires_approved_scope_definitions(): void
+    {
+        $service = app(LandingSnapshotService::class);
+
+        $mutations = [
+            'rombel_type' => 'all',
+            'rombel_types' => [2],
+            'student_identity' => 'peserta_didik_id',
+            'student_scope' => 'all',
+            'ptk_assignment' => 'all',
+            'ptk_active_rule' => 'semester_only',
+            'ptk_tmt_from' => '',
+            'ptk_tmt_to' => 'not-a-date',
+        ];
+
+        foreach ($mutations as $key => $value) {
+            $snapshot = $this->snapshotData();
+            $snapshot['scope'][$key] = $value;
+
+            $this->assertNotEmpty(
+                $service->validate($snapshot),
+                "scope.{$key} tidak boleh lolos validasi."
+            );
+        }
+    }
+
     public function test_review_does_not_apply_and_apply_requires_matching_hash(): void
     {
         File::put($this->inputPath, json_encode($this->snapshotData(), JSON_THROW_ON_ERROR));
@@ -127,7 +153,9 @@ class LandingSnapshotTest extends TestCase
             ->assertOk()
             ->assertSee('Satuan Pendidikan Aktif')
             ->assertSee('604')
-            ->assertSee('68.307')
+            ->assertSee('64.086')
+            ->assertSee('3.482')
+            ->assertSee('4.044')
             ->assertSee('6 Oktober 2026')
             ->assertSee('Semester Ganjil 2026/2027')
             ->assertDontSee('belum tersedia atau belum diverifikasi')
@@ -175,6 +203,14 @@ class LandingSnapshotTest extends TestCase
                 'region_prefix' => '2208',
                 'school_active_only' => true,
                 'rombel_active_only' => true,
+                'rombel_type' => 'kelas',
+                'rombel_types' => [1],
+                'student_identity' => 'nisn_valid_10',
+                'student_scope' => 'kelas',
+                'ptk_assignment' => 'induk',
+                'ptk_active_rule' => 'semester_or_tmt_since_month_start',
+                'ptk_tmt_from' => '2026-07-01',
+                'ptk_tmt_to' => '2026-10-20',
                 'semester_id' => '20261',
                 'forms' => [
                     ['id' => 1, 'name' => 'TK'],
@@ -184,35 +220,47 @@ class LandingSnapshotTest extends TestCase
             ],
             'cards' => [
                 'active_schools' => 604,
-                'students' => 68307,
-                'rombels' => 5077,
-                'ptk' => 5105,
+                'students' => 64086,
+                'rombels' => 3482,
+                'ptk' => 4044,
             ],
             'districts' => [
-                ['code' => '220804', 'name' => 'Karangasem', 'schools' => 115, 'rombel' => 1063, 'students' => 14928],
-                ['code' => '220808', 'name' => 'Kubu', 'schools' => 80, 'rombel' => 757, 'students' => 11362],
-                ['code' => '220805', 'name' => 'Abang', 'schools' => 94, 'rombel' => 789, 'students' => 10933],
-                ['code' => '220803', 'name' => 'Manggis', 'schools' => 77, 'rombel' => 538, 'students' => 7330],
-                ['code' => '220806', 'name' => 'Bebandem', 'schools' => 74, 'rombel' => 586, 'students' => 7024],
-                ['code' => '220801', 'name' => 'Rendang', 'schools' => 60, 'rombel' => 519, 'students' => 6215],
-                ['code' => '220807', 'name' => 'Selat', 'schools' => 60, 'rombel' => 475, 'students' => 6128],
-                ['code' => '220802', 'name' => 'Sidemen', 'schools' => 44, 'rombel' => 350, 'students' => 4402],
+                ['code' => '220804', 'name' => 'Karangasem', 'schools' => 115, 'rombel' => 724, 'students' => 13967, 'ptk' => 859],
+                ['code' => '220808', 'name' => 'Kubu', 'schools' => 80, 'rombel' => 527, 'students' => 10715, 'ptk' => 657],
+                ['code' => '220805', 'name' => 'Abang', 'schools' => 94, 'rombel' => 539, 'students' => 10465, 'ptk' => 608],
+                ['code' => '220803', 'name' => 'Manggis', 'schools' => 77, 'rombel' => 412, 'students' => 6903, 'ptk' => 445],
+                ['code' => '220806', 'name' => 'Bebandem', 'schools' => 74, 'rombel' => 377, 'students' => 6569, 'ptk' => 428],
+                ['code' => '220801', 'name' => 'Rendang', 'schools' => 60, 'rombel' => 334, 'students' => 5594, 'ptk' => 399],
+                ['code' => '220807', 'name' => 'Selat', 'schools' => 60, 'rombel' => 318, 'students' => 5634, 'ptk' => 387],
+                ['code' => '220802', 'name' => 'Sidemen', 'schools' => 44, 'rombel' => 251, 'students' => 4245, 'ptk' => 261],
             ],
             'comparisons' => [
                 'all_schools' => 843,
                 'active_schools' => 604,
                 'schools_with_rombels' => 599,
                 'all_rombels_latest' => 5077,
-                'rombel_members' => 97758,
-                'student_members' => 68322,
-                'unique_students' => 68307,
-                'district_student_sum' => 68322,
+                'class_rombels_latest' => 3482,
+                'rombel_members' => 64600,
+                'students_by_id' => 64495,
+                'unique_students' => 64086,
+                'district_student_sum' => 64092,
+                'nisn_blank' => 406,
+                'nisn_invalid' => 0,
+                'nisn_valid_ids' => 64089,
+                'nisn_duplicate_values' => 3,
+                'nisn_duplicate_extra_ids' => 3,
+                'ptk_induk_total' => 4981,
+                'ptk_active_semester' => 4036,
+                'ptk_active_semester_or_tmt' => 4040,
+                'ptk_active_with_tmt_month' => 4044,
+                'ptk_no_induk_total' => 124,
+                'ptk_no_induk_active' => 20,
             ],
             'sources' => [
                 'last_sync' => '2026-10-06T23:30:15',
                 'schools' => 'dbo.sekolah',
                 'rombels' => 'dbo.rombongan_belajar',
-                'students' => 'dbo.anggota_rombel',
+                'students' => 'dbo.anggota_rombel + dbo.peserta_didik',
                 'ptk' => 'dbo.ptk_terdaftar',
             ],
         ];

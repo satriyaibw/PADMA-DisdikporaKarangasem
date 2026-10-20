@@ -168,7 +168,7 @@ class LandingSnapshotService
                     $names[$name] = true;
                 }
 
-                foreach (['schools', 'rombel', 'students'] as $key) {
+                foreach (['schools', 'rombel', 'students', 'ptk'] as $key) {
                     if (! array_key_exists($key, $district)) {
                         $errors[] = "districts.{$index}.{$key} wajib ada.";
                     } elseif (! is_numeric($district[$key]) || (float) $district[$key] < 0) {
@@ -192,6 +192,22 @@ class LandingSnapshotService
             $errors[] = 'scope.school_active_only harus true.';
         } elseif (($scope['rombel_active_only'] ?? null) !== true) {
             $errors[] = 'scope.rombel_active_only harus true.';
+        } elseif (($scope['rombel_type'] ?? null) !== 'kelas') {
+            $errors[] = 'scope.rombel_type harus kelas.';
+        } elseif (! in_array(1, (array) ($scope['rombel_types'] ?? []), true)) {
+            $errors[] = 'scope.rombel_types harus memuat jenis_rombel 1 (Kelas).';
+        } elseif (($scope['student_identity'] ?? null) !== 'nisn_valid_10') {
+            $errors[] = 'scope.student_identity harus nisn_valid_10.';
+        } elseif (($scope['student_scope'] ?? null) !== 'kelas') {
+            $errors[] = 'scope.student_scope harus kelas.';
+        } elseif (($scope['ptk_assignment'] ?? null) !== 'induk') {
+            $errors[] = 'scope.ptk_assignment harus induk.';
+        } elseif (($scope['ptk_active_rule'] ?? null) !== 'semester_or_tmt_since_month_start') {
+            $errors[] = 'scope.ptk_active_rule harus semester_or_tmt_since_month_start.';
+        } elseif (! preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($scope['ptk_tmt_from'] ?? ''))) {
+            $errors[] = 'scope.ptk_tmt_from harus tanggal YYYY-MM-DD.';
+        } elseif (! preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($scope['ptk_tmt_to'] ?? ''))) {
+            $errors[] = 'scope.ptk_tmt_to harus tanggal YYYY-MM-DD.';
         }
 
         $lastSync = $snapshot['sources']['last_sync'] ?? null;
@@ -311,22 +327,22 @@ class LandingSnapshotService
             0 => [
                 'label' => 'Satuan Pendidikan Aktif',
                 'value' => (int) $cards['active_schools'],
-                'note' => 'Satuan pendidikan aktif di Kabupaten Karangasem',
+                'note' => 'satuan pendidikan aktif (formal & nonformal)',
             ],
             1 => [
                 'label' => 'Peserta Didik',
                 'value' => (int) $cards['students'],
-                'note' => 'peserta didik unik',
+                'note' => 'peserta didik unik (NISN valid 10 digit, kelas aktif)',
             ],
             2 => [
                 'label' => 'Rombongan Belajar',
                 'value' => (int) $cards['rombels'],
-                'note' => 'rombel aktif pada semester terbaru',
+                'note' => 'kelas aktif pada semester terbaru',
             ],
             3 => [
                 'label' => 'Pendidik & Tenaga Kependidikan',
                 'value' => (int) $cards['ptk'],
-                'note' => 'PTK unik terdaftar',
+                'note' => 'PTK aktif dengan penugasan induk',
             ],
         ];
 

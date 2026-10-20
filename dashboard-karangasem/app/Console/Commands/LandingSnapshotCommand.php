@@ -211,7 +211,11 @@ class LandingSnapshotCommand extends Command
         $this->line('Sumber  : '.($summary['updated_at'] ?? '-'));
         $this->line('Wilayah : '.($scope['region'] ?? '-').' ('.($scope['region_prefix'] ?? '-').')');
         $this->line('Sekolah : '.(($scope['school_active_only'] ?? false) ? 'aktif saja' : 'semua'));
-        $this->line('Rombel  : '.(($scope['rombel_active_only'] ?? false) ? 'aktif saja' : 'semua'));
+        $this->line('Rombel  : '.(($scope['rombel_active_only'] ?? false) ? 'aktif saja' : 'semua')
+            .' (jenis '.($scope['rombel_type'] ?? '-').')');
+        $this->line('PD      : '.($scope['student_identity'] ?? '-').' pada '.($scope['student_scope'] ?? '-'));
+        $this->line('PTK     : '.($scope['ptk_assignment'] ?? '-').', '.($scope['ptk_active_rule'] ?? '-')
+            .' (TMT '.($scope['ptk_tmt_from'] ?? '-').' s.d. '.($scope['ptk_tmt_to'] ?? '-').')');
         $this->line('Bentuk  : '.collect($scope['forms'] ?? [])->pluck('name')->implode(', '));
         $this->newLine();
 
@@ -219,42 +223,62 @@ class LandingSnapshotCommand extends Command
             ['Kartu', 'Nilai'],
             [
                 ['Satuan pendidikan aktif', number_format((int) $cards['active_schools'], 0, ',', '.')],
-                ['Peserta didik unik', number_format((int) $cards['students'], 0, ',', '.')],
-                ['Rombongan belajar', number_format((int) $cards['rombels'], 0, ',', '.')],
-                ['PTK unik', number_format((int) $cards['ptk'], 0, ',', '.')],
+                ['Peserta didik unik (NISN, Kelas)', number_format((int) $cards['students'], 0, ',', '.')],
+                ['Rombongan belajar (Kelas)', number_format((int) $cards['rombels'], 0, ',', '.')],
+                ['PTK aktif (induk)', number_format((int) $cards['ptk'], 0, ',', '.')],
             ]
         );
 
         $this->table(
-            ['Kecamatan', 'Sekolah', 'Rombel', 'Peserta didik'],
+            ['Kecamatan', 'Sekolah', 'Rombel', 'Peserta didik', 'PTK'],
             collect($summary['districts'])->map(fn (array $district): array => [
                 $district['name'],
                 number_format((int) $district['schools'], 0, ',', '.'),
                 number_format((int) $district['rombel'], 0, ',', '.'),
                 number_format((int) $district['students'], 0, ',', '.'),
+                number_format((int) ($district['ptk'] ?? 0), 0, ',', '.'),
             ])->all()
         );
 
         $comparisons = $summary['comparisons'] ?? [];
 
         if ($comparisons !== []) {
-            $this->table(
-                ['Pembanding', 'Nilai'],
-                collect([
-                    'Semua sekolah' => $comparisons['all_schools'] ?? null,
-                    'Sekolah aktif' => $comparisons['active_schools'] ?? null,
-                    'Sekolah dengan rombel' => $comparisons['schools_with_rombels'] ?? null,
-                    'Rombel semester terpilih' => $comparisons['all_rombels_latest'] ?? null,
-                    'Anggota rombel' => $comparisons['rombel_members'] ?? null,
-                    'Peserta didik per kecamatan (sum)' => $comparisons['district_student_sum'] ?? null,
-                    'Peserta didik unik' => $comparisons['unique_students'] ?? null,
-                ])->filter(fn ($value): bool => $value !== null)
-                    ->map(fn ($value): array => [number_format((int) $value, 0, ',', '.')])
-                    ->map(fn (array $value, string $key): array => [$key, $value[0]])
-                    ->values()
-                    ->all()
-            );
+            $this->table(['Pembanding', 'Nilai'], $this->comparisonRows($comparisons));
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $comparisons
+     * @return array<int, array{0: string, 1: string}>
+     */
+    protected function comparisonRows(array $comparisons): array
+    {
+        $rows = [
+            'Semua sekolah' => $comparisons['all_schools'] ?? null,
+            'Sekolah aktif' => $comparisons['active_schools'] ?? null,
+            'Sekolah dengan rombel' => $comparisons['schools_with_rombels'] ?? null,
+            'Semua jenis rombel' => $comparisons['all_rombels_latest'] ?? null,
+            'Rombel Kelas' => $comparisons['class_rombels_latest'] ?? null,
+            'Anggota rombel Kelas' => $comparisons['rombel_members'] ?? null,
+            'Peserta didik berdasarkan ID' => $comparisons['students_by_id'] ?? null,
+            'Peserta didik unik NISN' => $comparisons['unique_students'] ?? null,
+            'Jumlah peserta didik per kecamatan' => $comparisons['district_student_sum'] ?? null,
+            'NISN kosong' => $comparisons['nisn_blank'] ?? null,
+            'NISN tidak valid' => $comparisons['nisn_invalid'] ?? null,
+            'NISN ganda (nilai)' => $comparisons['nisn_duplicate_values'] ?? null,
+            'PTK induk' => $comparisons['ptk_induk_total'] ?? null,
+            'PTK aktif semester' => $comparisons['ptk_active_semester'] ?? null,
+            'PTK aktif semester + TMT' => $comparisons['ptk_active_semester_or_tmt'] ?? null,
+            'PTK aktif + TMT sejak awal bulan semester' => $comparisons['ptk_active_with_tmt_month'] ?? null,
+            'PTK non-induk' => $comparisons['ptk_no_induk_total'] ?? null,
+            'PTK non-induk aktif' => $comparisons['ptk_no_induk_active'] ?? null,
+        ];
+
+        return collect($rows)
+            ->filter(fn ($value): bool => $value !== null)
+            ->map(fn ($value, string $key): array => [$key, number_format((int) $value, 0, ',', '.')])
+            ->values()
+            ->all();
     }
 
     /**
@@ -277,7 +301,13 @@ class LandingSnapshotCommand extends Command
             '- **Periode:** '.($summary['period'] ?? '-'),
             '- **Wilayah:** '.($scope['region'] ?? '-').' (`'.($scope['region_prefix'] ?? '-').'`)',
             '- **Sekolah:** '.(($scope['school_active_only'] ?? false) ? 'aktif saja' : 'semua'),
-            '- **Rombel:** '.(($scope['rombel_active_only'] ?? false) ? 'aktif saja' : 'semua'),
+            '- **Rombel:** '.(($scope['rombel_active_only'] ?? false) ? 'aktif saja' : 'semua')
+                .' (jenis '.($scope['rombel_type'] ?? '-').')',
+            '- **Peserta didik:** '.($scope['student_identity'] ?? '-')
+                .' pada '.($scope['student_scope'] ?? '-'),
+            '- **PTK:** '.($scope['ptk_assignment'] ?? '-')
+                .', '.($scope['ptk_active_rule'] ?? '-')
+                .' (TMT '.($scope['ptk_tmt_from'] ?? '-').' s.d. '.($scope['ptk_tmt_to'] ?? '-').')',
             '- **Bentuk pendidikan:** '.collect($scope['forms'] ?? [])->pluck('name')->implode(', '),
             '',
             '## Kartu',
@@ -285,30 +315,43 @@ class LandingSnapshotCommand extends Command
             '| Kartu | Nilai |',
             '|---|---:|',
             '| Satuan pendidikan aktif | '.number_format((int) $summary['cards']['active_schools'], 0, ',', '.').' |',
-            '| Peserta didik unik | '.number_format((int) $summary['cards']['students'], 0, ',', '.').' |',
-            '| Rombongan belajar | '.number_format((int) $summary['cards']['rombels'], 0, ',', '.').' |',
-            '| PTK unik | '.number_format((int) $summary['cards']['ptk'], 0, ',', '.').' |',
+            '| Peserta didik unik (NISN, Kelas) | '.number_format((int) $summary['cards']['students'], 0, ',', '.').' |',
+            '| Rombongan belajar (Kelas) | '.number_format((int) $summary['cards']['rombels'], 0, ',', '.').' |',
+            '| PTK aktif (induk) | '.number_format((int) $summary['cards']['ptk'], 0, ',', '.').' |',
             '',
-            '## Kecamatan',
+            '## Pembanding',
             '',
-            '| Kecamatan | Sekolah | Rombel | Peserta didik |',
-            '|---|---:|---:|---:|',
+            '| Pembanding | Nilai |',
+            '|---|---:|',
         ];
+
+        foreach ($this->comparisonRows($summary['comparisons'] ?? []) as [$label, $value]) {
+            $lines[] = '| '.$label.' | '.$value.' |';
+        }
+
+        $lines[] = '';
+        $lines[] = '## Kecamatan';
+        $lines[] = '';
+        $lines[] = '| Kecamatan | Sekolah | Rombel | Peserta didik | PTK |';
+        $lines[] = '|---|---:|---:|---:|---:|';
 
         foreach ($summary['districts'] as $district) {
             $lines[] = '| '.$district['name'].' | '
                 .number_format((int) $district['schools'], 0, ',', '.').' | '
                 .number_format((int) $district['rombel'], 0, ',', '.').' | '
-                .number_format((int) $district['students'], 0, ',', '.').' |';
+                .number_format((int) $district['students'], 0, ',', '.').' | '
+                .number_format((int) ($district['ptk'] ?? 0), 0, ',', '.').' |';
         }
 
         $lines[] = '';
         $lines[] = '## Checklist review';
         $lines[] = '';
         $lines[] = '- [ ] Definisi sekolah aktif sudah sesuai kebijakan Dinas.';
-        $lines[] = '- [ ] Definisi rombel aktif dan semester sudah sesuai.';
+        $lines[] = '- [ ] Rombel hanya jenis Kelas (`jenis_rombel=1`) pada semester terpilih.';
+        $lines[] = '- [ ] Peserta didik memakai NISN valid 10 digit; NISN kosong, tidak valid, dan ganda sudah diperiksa.';
+        $lines[] = '- [ ] PTK memakai penugasan induk, status keluar, dan aturan aktif semester/TMT sejak awal bulan semester.';
+        $lines[] = '- [ ] PTK non-induk pada pembanding sudah dipahami dan tidak termasuk kartu.';
         $lines[] = '- [ ] Cakupan bentuk pendidikan (TK/PAUD/SD/SMP/nonformal) sudah disetujui.';
-        $lines[] = '- [ ] Angka peserta didik dan PTK memakai definisi unik/penempatan yang disepakati.';
         $lines[] = '- [ ] Jumlah kecamatan tepat 8 dan tidak ada wilayah yang hilang.';
         $lines[] = '- [ ] Angka dibandingkan dengan dashboard/sumber resmi.';
         $lines[] = '';

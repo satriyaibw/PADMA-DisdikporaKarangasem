@@ -22,15 +22,15 @@ index eksplisit selain PK, dump PostgreSQL 16.15.
 
 | Tabel | Baris | Makna |
 |---|---|---|
-| `sekolah` | 843 | Satuan pendidikan (wilayah `kode_wilayah` BPS-style, mis. `220801...`) |
+| `sekolah` | 843 | Satuan pendidikan total; **604 aktif** (`Soft_delete=0 AND keaktifan=1`) dipakai kartu landing (wilayah `kode_wilayah` BPS-style, mis. `220801...`) |
 | `peserta_didik` | 80.311 | Identitas peserta didik (nama, nisn, nik) — **PII** |
 | `peserta_didik_longitudinal` | 69.118 | Atribut PD per semester (TB/BB, jarak sekolah, dll); PK (`peserta_didik_id`,`semester_id`) |
 | `ats` | 5.944 | Data PD per semester + dimensi (jenjang, jenis_kelamin, kecamatan sekolah, `aktif`, `soft_delete`) — dipakai view `metrics.v_peserta_didik` |
 | `registrasi_peserta_didik` | 71.051 | Riwayat registrasi PD per sekolah |
 | `ptk` | 8.012 | Identitas PTK (nama, nik, nuptk) — **PII** |
-| `ptk_terdaftar` | 5.257 | Penempatan PTK per sekolah/tahun ajaran, jabatan, `aktif_bulan_xx` |
-| `rombongan_belajar` | 5.077 | Rombel per semester (tingkat, jurusan, wali kelas `ptk_id`) |
-| `anggota_rombel` | 97.758 | Keanggotaan PD di rombel (`Soft_delete`) |
+| `ptk_terdaftar` | 5.257 | Penempatan PTK per sekolah/tahun ajaran; **4.981 penugasan induk** dan **4.044 PTK aktif** dipakai kartu landing; `aktif_bulan_xx` |
+| `rombongan_belajar` | 5.077 | Rombel per semester; **3.482 berjenis Kelas** (`jenis_rombel=1`) dipakai kartu landing (tingkat, jurusan, wali kelas `ptk_id`) |
+| `anggota_rombel` | 97.758 | Keanggotaan PD di rombel (`Soft_delete`); **64.495 ID** di rombel Kelas, menghasilkan **64.086 NISN valid unik** |
 | `alat` | 109.971 | Sarana/prasarana per sekolah |
 | `bangunan` | 4.166 | Bangunan sekolah |
 | `ruang` | 11.449 | Ruang belajar/dll |
@@ -46,6 +46,12 @@ index eksplisit selain PK, dump PostgreSQL 16.15.
 > yang berkode wilayah Karangasem (`2208%`) — angka agregat `metrics`
 > mengikuti kondisi nyata ini dan harus dibaca apa adanya, bukan memaksakan
 > angka referensi MasterPlan.
+>
+> Kartu landing memakai definisi yang lebih ketat daripada angka mentah:
+> sekolah aktif, rombel `jenis_rombel=1` (Kelas), peserta didik dengan NISN
+> valid 10 digit yang unik, dan PTK aktif dengan penugasan induk. NISN dibaca
+> untuk deduplikasi; output hanya agregat. Rincian dan angka pembanding ada di
+> `docs/landing-snapshot.md`.
 
 ## 3. Kolom Kunci per Tabel (hasil verifikasi)
 
