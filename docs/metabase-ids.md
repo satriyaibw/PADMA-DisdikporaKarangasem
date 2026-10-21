@@ -47,9 +47,25 @@ Spesifikasi lengkap tiap kartu (SQL, definisi, angka ekspektasi) ada di
 | `8` | ATS | 7 |
 | `9` | Sarana Prasarana | 8 |
 
-Tata letak memakai `row` **kumulatif** (`row = row sebelumnya + size_y`). Jangan memakai
-indeks sekuensial — grid Metabase menghitung tinggi dari `size_y`, sehingga `row` 0,1,2
-membuat kartu menimpa footer "Didukung oleh Metabase".
+Tata letak memakai `row` **kumulatif** (`row = row sebelumnya + size_y`) dan **tidak boleh
+bertumpuk**. Dua kartu yang menempati sel grid yang sama akan digeser Metabase ke bawah saat
+render, tetapi tinggi dashboard (posisi footer) tetap dihitung dari `row` deklaratif — konten
+jadi lebih panjang dari wadah dan kartu terakhir menembus footer "Didukung oleh Metabase".
+
+Contoh yang pernah terjadi di tab Sarana Prasarana: SAR-07 dipasang `row 12 col 12` padahal
+SAR-04 sudah menempati `row 8–16 col 12`. SAR-07 terdorong ke `row 16`, SAR-08 ke `row 24`,
+sementara footer tetap di `row 30` → tertimpa 162 px. Setelah diperbaiki (SAR-05 `12×12`,
+SAR-07 `row 16`, SAR-08 `row 24`), tinggi deklaratif = 34 = tinggi nyata.
+
+Verifikasi cepat (read-only, butuh kredensial di `.env`):
+
+```bash
+python3 scripts/metabase/check-layout.py          # dashboard publik (id 2)
+python3 scripts/metabase/check-layout.py --dashboard 3
+```
+
+Skrip melaporkan tabrakan sel, kartu yang melewati 24 kolom, dan tinggi deklaratif per tab.
+Exit code 0 = aman.
 
 ## Parameter Dashboard Publik
 

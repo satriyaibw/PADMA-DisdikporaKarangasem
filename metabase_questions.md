@@ -374,6 +374,12 @@ ats_dim AS (
   Kesalahan `row = 0, 1, 2` membuat tinggi grid kurang dihitung sehingga kartu menimpa footer
   "Didukung oleh Metabase" (bug yang sudah diperbaiki di PR #20).
 - Tinggi minimum aman: KPI `size_y = 4`, grafik `size_y = 8`, tabel `size_y = 10`.
+- **Sel grid tidak boleh bertumpuk.** Metabase menggeser kartu yang bertabrakan ke bawah saat render,
+  tetapi tinggi dashboard (posisi footer "Didukung oleh Metabase") dihitung dari `row` deklaratif.
+  Akibatnya konten lebih panjang dari wadah dan kartu terakhir menembus footer. Contoh nyata: tab
+  Sarana Prasarana pernah memasang SAR-07 di `row 12 col 12` padahal SAR-04 sudah menempati
+  `row 8–16 col 12`; SAR-07 terdorong ke `row 16` dan SAR-08 ke `row 24`, sementara footer tetap di
+  `row 30` sehingga tertimpa 162 px. Verifikasi: `tinggi konten ≤ posisi footer` di **setiap** tab.
 - Wrapper aplikasi memakai layout flex satu viewport (bukan `calc(100vh - Xrem)`), sehingga
   dashboard boleh lebih tinggi dari layar tanpa memotong footer.
 
@@ -2769,7 +2775,7 @@ LIMIT 15
 
 Agregasi aset sarana prasarana sekolah aktif beserta kondisinya.
 
-**Tata letak yang disarankan**: Grafik 12×8 (baris 0 dan 8), KPI 6×4 (baris 16), grafik 12×8 (baris 20), tabel/grafik 24×8 (baris 28).
+**Tata letak yang disarankan**: Grafik 12×8 (baris 0), grafik 12×8 + KPI 6×4 (baris 8), grafik 12×12 (baris 12), grafik 12×8 (baris 16), grafik lebar 24×10 (baris 24).
 
 
 | ID | Judul | Tipe | Ekspektasi |
@@ -3246,6 +3252,8 @@ LIMIT 10
 - [ ] Uji viewport 1470×900, 1470×662, dan 500×844: tidak ada scroll ganda di wrapper.
 - [ ] `vendor/bin/sail artisan metabase:check-embedding` mengembalikan HTTP 200.
 - [ ] Dashboard admin (id 4) sudah tidak ada.
+- [ ] `python3 scripts/metabase/check-layout.py` → exit 0 (tidak ada sel grid bertumpuk).
+- [ ] Setiap tab: tinggi konten ≤ posisi footer (footer tidak tertimpa kartu terakhir).
 - [ ] `docs/metabase-ids.md` diperbarui dengan 46 card ID dan 6 tab ID.
 
 ---
