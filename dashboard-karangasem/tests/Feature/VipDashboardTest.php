@@ -46,12 +46,20 @@ class VipDashboardTest extends TestCase
      */
     public function test_guest_sees_public_dashboard_with_public_embed_url(): void
     {
-        $this->get('/dashboard')
-            ->assertOk()
+        config(['app.asset_version' => 'test-build']);
+
+        $response = $this->get('/dashboard');
+
+        $response->assertOk()
             ->assertViewIs('public.dashboard')
-            ->assertViewHas('embedUrl', 'https://metabase.test/public/dashboard/65fb774f-493a-4bbc-b438-34bf5de4c174')
             ->assertSee('/public/dashboard/65fb774f-493a-4bbc-b438-34bf5de4c174')
             ->assertDontSee('/public/dashboard/2"');
+
+        $this->assertStringStartsWith(
+            'https://metabase.test/public/dashboard/65fb774f-493a-4bbc-b438-34bf5de4c174',
+            $response->viewData('embedUrl'),
+        );
+        $this->assertStringEndsWith('?_v=test-build', $response->viewData('embedUrl'));
     }
 
     public function test_public_dashboard_links_to_the_vip_login_page(): void

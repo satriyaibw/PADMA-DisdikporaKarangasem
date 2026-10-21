@@ -84,6 +84,7 @@ vendor/bin/sail artisan schedule:list               # Verify 4 scheduled jobs
 | Prune audit logs | `vendor/bin/sail artisan audit:prune --days=365` |
 | Start Cloudflare tunnels | `./scripts/tunnel/tunnel-up.sh` |
 | Stop Cloudflare tunnels | `./scripts/tunnel/tunnel-down.sh` |
+| Check dashboard grid layout | `python3 scripts/metabase/check-layout.py` (exit 0 = tidak ada sel bertumpuk) |
 
 ### Scheduled Jobs (WITA / UTC+8)
 
@@ -146,4 +147,5 @@ vendor/bin/sail artisan schedule:list               # Verify 4 scheduled jobs
 - **Quick Tunnels are ephemeral** — hostname changes on every start; `tunnel-up.sh` rewrites `.env` + Metabase `site-url` via API
 - Metabase `MB_SITE_URL` must NOT be pinned in `deploy/metabase/.env` — let `tunnel-up.sh` set it via API
 - **Metabase dashcards created via API must use cumulative grid rows**: `row = previous row + previous size_y` (e.g. 0 and 6). Sequential indices (0, 1, 2) shrink the computed grid height, so cards overflow their container and paint over the "Didukung oleh Metabase" footer — the footer sits in normal flow, not fixed
+- **Declared grid cells must not overlap** (same `col` span + `row` range). Metabase reflows colliding cards downward at render time, but the dashboard height (footer position) still uses the declared `row`s, so content grows taller than its container and the last card paints over the footer. Verify per tab: `max(row + size_y)` of the declared layout must equal the rendered content height. Real case: Sarpras had SAR-07 at `row 12 col 12` over SAR-04 (`row 8–16 col 12`) → footer covered by 162 px; fixed with SAR-05 `12×12`, SAR-07 `row 16`, SAR-08 `row 24`
 - Dashboard wrappers (`public.dashboard`, `vip.dashboard`) use a flex-column single-viewport layout (`body` flex, `header` `flex: 0 0 auto`, `iframe` `flex: 1 1 auto; min-height: 0`). Do not reintroduce `height: calc(100vh - Xrem)` — header height varies on small screens and causes double scrollbars
