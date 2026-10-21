@@ -64,6 +64,11 @@ Arsitekturnya sengaja memisahkan tanggung jawab: **Metabase** menjadi mesin anal
 │   ├── metabase/             # Docker Compose Metabase
 │   └── nginx/                # Contoh reverse proxy
 ├── docs/                     # Dokumentasi teknis (runbook, security, UAT)
+├── scripts/
+│   ├── landing-snapshot.sh   # Pipeline snapshot statistik landing
+│   ├── metabase/             # check-layout.py — verifikasi grid dashboard
+│   └── tunnel/               # Cloudflare Quick Tunnel (up/down)
+├── metabase_questions.md     # Katalog 46 kartu & 6 tab dashboard publik
 └── MasterPlan.md             # Rencana global 7 fase
 ```
 
@@ -115,6 +120,30 @@ Buka `/` untuk landing page, lalu pilih **Jelajahi Dashboard Publik** menuju `/d
 3. Setiap aksi tercatat di tabel `admin_activity_logs` beserta aktor, perubahan, IP, dan user agent.
 4. Jalankan `audit:prune --days=365` untuk memangkas log lama (terjadwal otomatis pukul 03:00 WITA).
 
+## Dashboard Metabase
+
+Dashboard publik di `/dashboard` adalah public embed Metabase (tanpa token) dengan **6 tab** dan **7 filter**:
+
+| Tab | Isi |
+| --- | --- |
+| Eksekutif | KPI sekolah, rombel, peserta didik, PTK, rasio, dan sebaran sekolah per jenjang |
+| Sekolah | Sebaran sekolah per jenjang/status/kecamatan, akreditasi, kepemilikan, serta sekolah tanpa kepala sekolah atau rombel |
+| Rombel | Jumlah & ukuran rombel per jenjang/kecamatan, kepatuhan standar, rombel melebihi standar, dan wali kelas tidak aktif |
+| Peserta Didik | KPI peserta didik, sebaran per kecamatan/jenjang/tingkat, kualitas NISN, dan peserta didik keluar |
+| ATS | Anak usia sekolah 7–18 tahun yang dapat diintervensi (berbasis domisili): status, kecamatan, jenjang, kelompok usia, dan desa |
+| Sarana Prasarana | Sarana per kategori, kondisi & tingkat kerusakan ruang, kecukupan ruang kelas, perpustakaan, sumber air, dan alat |
+
+Filter yang tersedia: Kecamatan, Desa/Kelurahan, Jenjang Satuan Pendidikan, Status Sekolah, Jenis PTK, Jabatan PTK, dan Jenjang (ATS). Nilai dropdown diambil dari kartu helper di collection **Filter — Daftar Nilai** (ditambah daftar statis untuk Status Sekolah), sehingga pilihannya relevan dengan data dan tidak memunculkan wilayah yang salah.
+
+**Sumber kebenaran** katalog kartu (46 kartu native SQL ke database `backbone_client`) adalah [`metabase_questions.md`](./metabase_questions.md); ID dashboard, tab, parameter, dan sumber nilai filter ada di [`docs/metabase-ids.md`](./docs/metabase-ids.md).
+
+### Mengubah layout dashboard
+
+1. Ubah definisi kartu SQL di `metabase_questions.md` beserta validasi query-nya.
+2. Terapkan ke Metabase: buat/perbarui kartu, lalu kirim ulang dashcard per tab.
+3. Jalankan guard grid dari root repo: `python3 scripts/metabase/check-layout.py` (tambahkan `--dashboard 3` untuk dashboard VIP). Exit 0 berarti tidak ada sel bertumpuk dan tidak ada kartu yang melewati 24 kolom. Sel grid **tidak boleh bertumpuk**: Metabase menggeser kartu yang bentrok ke bawah, tetapi tinggi dashboard (posisi footer "Didukung oleh Metabase") tetap dihitung dari `row` deklaratif — kartu terakhir bisa menimpa footer.
+4. Muat ulang `/dashboard` penuh (Ctrl+Shift+R); tab yang dibiarkan terbuka menyimpan dokumen dashboard lama. Untuk memaksa semua pengunjung memuat versi baru, naikkan `ASSET_VERSION` di `.env` lalu `sail artisan config:clear && sail artisan config:cache`. URL iframe menjadi `?_v=<ASSET_VERSION>`; bila kosong, nilainya diambil dari mtime `public/build/manifest.json` (berubah tiap `npm run build`).
+
 ## Landing Page & SEO
 
 Landing page di `/` memakai snapshot statistik yang direview dan disimpan sebagai JSON di `storage/app/landing/snapshot.json`, sedangkan dashboard di `/dashboard` menampilkan data live dari Metabase. Keduanya merujuk sumber Dapodik yang sama, tetapi hanya landing yang boleh masuk indeks mesin pencari. Pipeline `./scripts/landing-snapshot.sh review|apply|verify` wajib dijalankan saat setup dan setelah sinkronisasi Pusdatin; detailnya di [`docs/landing-snapshot.md`](./docs/landing-snapshot.md). Flag utamanya:
@@ -150,6 +179,11 @@ Jalankan dari `dashboard-karangasem/`. Test suite **wajib lewat Sail** — `php 
 | `sail bin pint --test --format agent` | Gaya kode | Tanpa diff |
 | `sail composer audit` | Advisory dependensi | Tidak ada advisory |
 | `sail artisan security:scan-pii` | Pemindaian PII dashboard Publik/VIP | Exit 0, laporan di `storage/app/security/` |
+| `sail artisan metabase:check-embedding` | Validasi konfigurasi & URL bertanda tangan | Exit 0 |
+| `sail artisan schedule:list` | Verifikasi 4 job terjadwal | 4 baris jadwal tampil |
+| `python3 scripts/metabase/check-layout.py` | Grid dashboard Metabase (dari root repo) | Exit 0, tidak ada sel bertumpuk |
+
+`sail artisan metabase:check-embedding` memerlukan kredensial `METABASE_ADMIN_*` di `.env`, sedangkan `check-layout.py` dijalankan dari root repo (di luar `dashboard-karangasem/`). Ikuti `docs/uat.md` untuk skenario manual yang tidak dapat diotomatisasi (T9, T10).
 
 > **Triage `security:scan-pii` (2026-10-11):** exit 1 dengan kartu P5 (publik)
 > dan V2 (VIP) menandai kolom `nama`. Keduanya hasil `JOIN ref.tingkat_pendidikan`
@@ -158,16 +192,14 @@ Jalankan dari `dashboard-karangasem/`. Test suite **wajib lewat Sail** — `php 
 > jadi **false positive ini diputuskan manusia, bukan diam-diam diabaikan**.
 > Perlu keputusan: beri pengecualian per tabel referensi, atau ubah query agar
 > tidak men-exposed kolom `nama`.
-| `sail artisan metabase:check-embedding` | Validasi konfigurasi & URL bertanda tangan | Exit 0 |
-| `sail artisan schedule:list` | Verifikasi 4 job terjadwal | 4 baris jadwal tampil |
-
-Dua perintah terakhir memerlukan kredensial `METABASE_ADMIN_*` di `.env`. Ikuti `docs/uat.md` untuk skenario manual yang tidak dapat diotomatisasi (T9, T10).
 
 ## Debugging & Pemeliharaan
 
 | Gejala | Aksi pertama |
 | --- | --- |
 | Iframe putih / embed mati | `sail artisan metabase:check-embedding` |
+| Kartu menimpa footer “Didukung oleh Metabase” | Sel grid bertumpuk — jalankan `python3 scripts/metabase/check-layout.py`, perbaiki `row`/`col` |
+| Layout dashboard lama setelah kartu diubah | Reload penuh (Ctrl+Shift+R); untuk semua pengunjung naikkan `ASSET_VERSION` lalu `config:cache` (runbook §4.1) |
 | VIP masih bisa login padahal lewat masa aktif | `sail artisan vip:deactivate-expired` lalu periksa cron |
 | `/up` balas 500 | `grep 'Health check gagal' storage/logs/laravel.log` |
 | Perubahan `.env` tidak terlihat | `sail artisan config:clear` |
@@ -203,6 +235,7 @@ Panduan lengkap: **`deploy/backup/README.md`** dan `docs/runbook.md` §7.
 | Dokumen | Tujuan |
 | --- | --- |
 | [`MasterPlan.md`](./MasterPlan.md) | Rencana global 7 fase & peta database nyata |
+| [`metabase_questions.md`](./metabase_questions.md) | Katalog 46 kartu & 6 tab dashboard publik (SQL, filter, layout) |
 | [`docs/runbook.md`](./docs/runbook.md) | Runbook operasional: arsitektur, restart, rotasi secret, backup, insiden |
 | [`docs/landing-snapshot.md`](./docs/landing-snapshot.md) | Review, apply, dan verifikasi snapshot statistik landing |
 | [`docs/security-checklist.md`](./docs/security-checklist.md) | Checklist keamanan Fase 5 & cara verifikasi tiap item |
