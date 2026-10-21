@@ -5,13 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dashboard VIP</title>
     <style>
-        body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
-        header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e3e0; }
+        html { height: 100%; }
+        /* Kerangka flex satu layar: iframe mengisi sisa viewport tanpa calc(). */
+        body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
+        header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 1.25rem; border-bottom: 1px solid #e3e3e0; }
         h1 { font-size: 1.125rem; margin: 0; }
         .user { font-size: 0.875rem; color: #706f6c; }
         form { margin: 0; }
         button { cursor: pointer; padding: 0.35rem 0.9rem; border: 1px solid #19140035; border-radius: 0.25rem; background: #fff; font-size: 0.875rem; }
-        iframe { display: block; width: 100%; height: calc(100vh - 3.25rem); border: 0; }
+        iframe { display: block; flex: 1 1 auto; min-height: 0; width: 100%; border: 0; }
     </style>
 </head>
 <body>

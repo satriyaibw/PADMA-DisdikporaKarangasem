@@ -12,8 +12,14 @@ return [
     |
     */
 
-    // URL penuh instance Metabase, tanpa trailing slash. Hanya http/https.
+    // URL penuh instance Metabase untuk browser (iframe src, CSP, link publik).
+    // Harus bisa diresolve oleh browser pengguna (bukan nama host Docker internal).
     'site_url' => env('METABASE_SITE_URL'),
+
+    // URL internal untuk probe server-side (metabase:check-embedding).
+    // Jalan di container Laravel → bisa pakai nama service Docker.
+    // Default fallback ke site_url bila tidak di-set.
+    'internal_url' => env('METABASE_INTERNAL_URL', env('METABASE_SITE_URL')),
 
     // Secret embedding Metabase (MB_EMBEDDING_SECRET_KEY). Wajib identik dengan
     // Metabase dan minimal 32 karakter (HS256 membutuhkan kunci 256 bit).
