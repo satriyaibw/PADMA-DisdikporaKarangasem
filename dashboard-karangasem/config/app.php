@@ -169,4 +169,18 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Asset Version (Cache Buster)
+    |--------------------------------------------------------------------------
+    |
+    | Penanda versi pada URL iframe dashboard Metabase. Bila kosong, aplikasi
+    | memakai mtime `public/build/manifest.json` yang berubah setiap kali
+    | `npm run build` dijalankan. Naikkan nilainya untuk memaksa browser
+    | memuat ulang dokumen dashboard tanpa menunggu build berikutnya.
+    |
+    */
+
+    'asset_version' => env('ASSET_VERSION'),
+
 ];

@@ -152,6 +152,19 @@ Menghapus cache dari CLI (mematikan proses Metabase sebentar):
 docker compose -f deploy/metabase/docker-compose.yml restart metabase
 ```
 
+### 4.1 Perubahan layout kartu (bukan data)
+
+Menambah atau mengubah kartu lewat API Metabase tidak memicu refresh cache
+query, tetapi tab browser yang sudah terbuka tetap memakai dokumen dashboard
+lama — kartu bisa tampak menimpa footer sampai halaman dimuat ulang penuh.
+
+1. Muat ulang penuh `/dashboard` (Ctrl+Shift+R), bukan sekadar berpindah tab.
+2. Untuk memaksa semua pengunjung: naikkan `ASSET_VERSION` di `.env` lalu
+   `vendor/bin/sail artisan config:clear && vendor/bin/sail artisan config:cache`.
+   Halaman publik menambahkan `?_v=<ASSET_VERSION>` pada URL iframe, sehingga
+   browser memuat dokumen dashboard baru. Bila `ASSET_VERSION` kosong, nilai
+   diambil dari mtime `public/build/manifest.json` (berubah tiap `npm run build`).
+
 ---
 
 ## 5. Rotasi `METABASE_EMBEDDING_SECRET`
@@ -371,6 +384,7 @@ hilang tanpa jejak.
 | Halaman penyiapan 2FA tampak buntu | Admin belum memasang authenticator | Klik "Mulai penyiapan", pindai QR, masukkan kode 6 digit, simpan kode pemulihan |
 | Semua embed mati setelah rotasi secret | `METABASE_EMBEDDING_SECRET` ≠ `MB_EMBEDDING_SECRET_KEY` | Samakan keduanya, restart Metabase, `config:clear` |
 | Tampilan dashboard tidak berubah | Cache query Metabase | Refresh cache, §4 |
+| Dashboard lama setelah layout kartu diubah | Tab browser menyimpan dokumen iframe lama | Reload penuh (Ctrl+Shift+R); untuk semua pengunjung naikkan `ASSET_VERSION`, §4.1 |
 | Akun VIP masih bisa masuk padahal masa aktif habis | Job 00:30 belum jalan | `php artisan vip:deactivate-expired`, periksa cron §8 |
 | `/up` balas 500 | DB/cache/disk bermasalah | `Log::warning 'Health check gagal.'` menyebut komponennya; pesan asli hanya ada di log, bukan di respons |
 | Scheduler tidak jalan sama sekali | Cron tidak terpasang | `crontab -l`, §8 |

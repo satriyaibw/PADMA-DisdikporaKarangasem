@@ -173,6 +173,20 @@ class DashboardViewRenderingTest extends TestCase
     }
 
     /**
+     * Iframe publik membawa penanda versi: setelah build/deploy URL berubah,
+     * sehingga tab lama tidak terus memakai dokumen dashboard sebelum perubahan.
+     */
+    public function test_the_public_embed_url_carries_the_asset_version(): void
+    {
+        config(['app.asset_version' => 'build-123']);
+
+        $response = $this->get('/dashboard');
+
+        $this->assertStringEndsWith('?_v=build-123', $response->viewData('embedUrl'));
+        $response->assertSee('_v=build-123', false);
+    }
+
+    /**
      * Halaman VIP menampilkan nama akun sendiri; data akun orang lain tidak
      * punya alasan untuk ikut terender.
      */
