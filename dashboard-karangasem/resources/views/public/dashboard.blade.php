@@ -18,14 +18,28 @@
 
         * { box-sizing: border-box; }
 
+        html { height: 100%; }
+
+        /*
+         * Kerangka flex satu layar: header memakai tinggi kontennya sendiri dan
+         * iframe selalu mengisi sisa viewport. Tidak ada calc() yang mengandaikan
+         * tinggi header, sehingga header yang membungkus di layar kecil tidak
+         * pernah memunculkan scrollbar ganda.
+         */
         body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            min-height: 100dvh;
             margin: 0;
+            overflow: hidden;
             color: var(--brand-950);
             background: #f8fbff;
             font-family: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
         }
 
         header {
+            flex: 0 0 auto;
             display: flex;
             min-height: 4.25rem;
             align-items: center;
@@ -124,8 +138,9 @@
 
         iframe {
             display: block;
+            flex: 1 1 auto;
+            min-height: 0;
             width: 100%;
-            height: calc(100vh - 4.25rem);
             border: 0;
             background: #f8fbff;
         }
