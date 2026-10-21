@@ -53,7 +53,53 @@ class MetabaseEmbedService
     }
 
     /**
-     * Base URL Metabase tanpa trailing slash.
+     * URL signed embedding untuk probe internal — base URL dari internal_url.
+     *
+     * @param  array<string, mixed>  $params
+     */
+    public function internalSignedUrl(array $params = []): string
+    {
+        $payload = [
+            'resource' => ['dashboard' => $this->vipDashboardId()],
+            'params' => (object) $this->validatedParams($params),
+            'exp' => time() + $this->embedTtl(),
+        ];
+
+        $token = JWT::encode($payload, $this->embeddingSecret(), 'HS256');
+
+        return $this->internalUrl().'/embed/dashboard/'.$token.'#bordered=true&titled=true';
+    }
+
+    /**
+     * Base URL Metabase untuk probe server-side (internal Docker network).
+     *
+     * @throws RuntimeException bila kosong, bukan URL absolut, memuat
+     *                          kredensial, atau memakai skema selain http/https.
+     */
+    protected function internalUrl(): string
+    {
+        $internalUrl = rtrim((string) config('metabase.internal_url'), '/');
+
+        if ($internalUrl === '') {
+            throw new RuntimeException('Metabase internal URL is not configured.');
+        }
+
+        $parts = parse_url($internalUrl);
+
+        if ($parts === false || ! isset($parts['scheme'], $parts['host'])
+            || ! in_array(strtolower($parts['scheme']), self::ALLOWED_SCHEMES, true)) {
+            throw new RuntimeException('Metabase internal URL must be an absolute http or https URL.');
+        }
+
+        if (isset($parts['user'], $parts['pass'])) {
+            throw new RuntimeException('Metabase internal URL must not contain credentials.');
+        }
+
+        return $internalUrl;
+    }
+
+    /**
+     * Base URL Metabase tanpa trailing slash (untuk browser / iframe).
      *
      * @throws RuntimeException bila kosong, bukan URL absolut, memuat
      *                          kredensial, atau memakai skema selain http/https.

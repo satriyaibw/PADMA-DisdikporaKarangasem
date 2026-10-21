@@ -58,7 +58,7 @@ class MetabaseCheckEmbedding extends Command
     }
 
     /**
-     * Muat satu URL bertanda tangan dan laporkan status HTTP.
+     * Muat satu URL bertanda tangan (internal) dan laporkan status HTTP.
      *
      * Nilai URL (yang memuat token) tidak pernah dicetak: hanya status dan
      * ringkasan konfigurasi yang non-rahasia.
@@ -68,7 +68,7 @@ class MetabaseCheckEmbedding extends Command
         try {
             $response = Http::connectTimeout(self::REQUEST_TIMEOUT_SECONDS)
                 ->timeout(self::REQUEST_TIMEOUT_SECONDS)
-                ->get($metabase->signedUrl());
+                ->get($metabase->internalSignedUrl());
         } catch (Throwable $e) {
             $this->error('Gagal menghubungi Metabase: '.SafeErrorMessage::for($e));
 
