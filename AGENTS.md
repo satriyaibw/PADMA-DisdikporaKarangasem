@@ -18,7 +18,8 @@
 │       ├── tunnel-up.sh      # starts tunnels, updates .env + Metabase site-url
 │       └── tunnel-down.sh    # stops tunnels, clears state
 ├── .tunnel/                  # gitignored tunnel state (PIDs, logs, URLs)
-└── MasterPlan.md             # 7-phase global plan
+├── MasterPlan.md             # 7-phase global plan
+└── metabase_questions.md     # 46 kartu & 6 tab dashboard publik (SQL, filter, layout)
 ```
 
 ## Critical Architecture Rules (Never Violate)
@@ -31,6 +32,7 @@
 | **`METABASE_EMBEDDING_SECRET` must equal `MB_EMBEDDING_SECRET_KEY`** | JWT HS256 signing for signed embeds; mismatch breaks all embeds |
 | **Never touch `MB_ENCRYPTION_SECRET_KEY`** | Encrypts DB credentials in Metabase metadata; changing it breaks all connections |
 | **`METABASE_SITE_URL` (browser) ≠ `METABASE_INTERNAL_URL` (probe)** | Browser needs public hostname; `metabase:check-embedding` runs in Docker and needs internal service name |
+| **Public embed uses UUID, not numeric ID** | Metabase `/public/dashboard/{uuid}` only accepts `public_uuid`; numeric ID shows "Unauthenticated" |
 
 ## Developer Commands (Run from `dashboard-karangasem/`)
 
@@ -120,6 +122,9 @@ vendor/bin/sail artisan schedule:list               # Verify 4 scheduled jobs
 | Landing not indexed | `SEO_INDEXABLE=false` or static `robots.txt` in Nginx |
 | Scheduler not running | `crontab -l` — ensure `schedule:run` every minute |
 | Admin MFA loop | Complete TOTP setup (QR + 6-digit code) |
+| Card overlaps footer | Grid cells overlap — run `python3 scripts/metabase/check-layout.py`, fix `row`/`col` |
+| Old dashboard layout after card change | Full reload (Ctrl+Shift+R); bump `ASSET_VERSION` then `config:cache` |
+| Backup fails | `tail -n 20 storage/logs/backup.log` |
 
 ## Documentation References
 
