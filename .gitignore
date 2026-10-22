@@ -15,6 +15,9 @@
 # State & log lokal Cloudflare Quick Tunnel (hostname ephemeral, PID, kredensial)
 /.tunnel/
 
+# Snapshot state Metabase sebelum script re-apply menulis (lokal, bukan sumber kebenaran)
+/scripts/metabase/.backup/
+
 # Database dumps & data (mengandung PII)
 *.dump
 *.sql.gz
@@ -39,3 +42,7 @@ Thumbs.db
 # Working documents (rencana kerja lokal, dipublikasikan lewat GitHub Issue)
 /plan.md
 /PLAN.md
+
+# Python (script operasional di scripts/)
+__pycache__/
+*.pyc

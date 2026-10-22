@@ -1,0 +1,2156 @@
+{
+  "generated_at": "2026-10-22",
+  "source": "metabase_questions.md §3.1, §3.4, §4.1, §6",
+  "dashboard_id": 2,
+  "database_id": 2,
+  "cards": {
+    "82": {
+      "name": "Total ATS Usia Sekolah (7–18 Tahun)",
+      "description": "Total ATS usia 7-18 tahun di Kabupaten Karangasem. Kolom semester_id ATS adalah periode pencatatan; gunakan filter Semester (ATS) untuk menelusuri per periode.",
+      "query": "WITH ats_dim AS (\n  SELECT\n    dbo.ats.ats_id,\n    dbo.ats.semester_id,\n    TRIM(dbo.ats.status) AS status,\n    dbo.ats.usia,\n    dbo.ats.kecamatan,\n    dbo.ats.desa_kelurahan AS desa,\n    COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,\n    dbo.ats.tahun\n  FROM dbo.ats\n  WHERE dbo.ats.soft_delete = 0\n    AND dbo.ats.usia BETWEEN 7 AND 18\n    AND dbo.ats.kode_kabupaten = '220800'\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{semester_ats}}]]\n)\nSELECT COUNT(*) AS total_ats\nFROM ats_dim",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1379,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1387,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1385,
+            null
+          ]
+        },
+        "semester_ats": {
+          "type": "dimension",
+          "name": "semester_ats",
+          "display-name": "Semester (ATS)",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1411,
+            null
+          ]
+        }
+      }
+    },
+    "83": {
+      "name": "Komposisi Status ATS",
+      "description": "Sebaran ATS menurut status: BPB (belum pernah bersekolah), LTM (lulus tidak melanjutkan), dan DO (drop out). Nilai dinormalisasi dengan `TRIM()` karena basis data menyimpan dua varian ('DO' dan 'DO ').",
+      "query": "WITH ats_dim AS (\n  SELECT\n    dbo.ats.ats_id,\n    dbo.ats.semester_id,\n    TRIM(dbo.ats.status) AS status,\n    dbo.ats.usia,\n    dbo.ats.kecamatan,\n    dbo.ats.desa_kelurahan AS desa,\n    COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,\n    dbo.ats.tahun\n  FROM dbo.ats\n  WHERE dbo.ats.soft_delete = 0\n    AND dbo.ats.usia BETWEEN 7 AND 18\n    AND dbo.ats.kode_kabupaten = '220800'\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{semester_ats}}]]\n)\nSELECT status, COUNT(*) AS jumlah_ats\nFROM ats_dim\nGROUP BY status\nORDER BY jumlah_ats DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1379,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1387,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1385,
+            null
+          ]
+        },
+        "semester_ats": {
+          "type": "dimension",
+          "name": "semester_ats",
+          "display-name": "Semester (ATS)",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1411,
+            null
+          ]
+        }
+      }
+    },
+    "84": {
+      "name": "ATS per Kecamatan",
+      "description": "Jumlah ATS usia 7–18 tahun pada setiap kecamatan.",
+      "query": "WITH ats_dim AS (\n  SELECT\n    dbo.ats.ats_id,\n    dbo.ats.semester_id,\n    TRIM(dbo.ats.status) AS status,\n    dbo.ats.usia,\n    dbo.ats.kecamatan,\n    dbo.ats.desa_kelurahan AS desa,\n    COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,\n    dbo.ats.tahun\n  FROM dbo.ats\n  WHERE dbo.ats.soft_delete = 0\n    AND dbo.ats.usia BETWEEN 7 AND 18\n    AND dbo.ats.kode_kabupaten = '220800'\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{semester_ats}}]]\n)\nSELECT kecamatan, COUNT(*) AS jumlah_ats\nFROM ats_dim\nGROUP BY kecamatan\nORDER BY jumlah_ats DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1379,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1387,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1385,
+            null
+          ]
+        },
+        "semester_ats": {
+          "type": "dimension",
+          "name": "semester_ats",
+          "display-name": "Semester (ATS)",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1411,
+            null
+          ]
+        }
+      }
+    },
+    "85": {
+      "name": "ATS per Jenjang Pendidikan Terakhir",
+      "description": "Jumlah ATS menurut jenjang pendidikan terakhir yang tercatat (SD, SMP, SMA, Paket A/B/C, atau tidak terdata).",
+      "query": "WITH ats_dim AS (\n  SELECT\n    dbo.ats.ats_id,\n    dbo.ats.semester_id,\n    TRIM(dbo.ats.status) AS status,\n    dbo.ats.usia,\n    dbo.ats.kecamatan,\n    dbo.ats.desa_kelurahan AS desa,\n    COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,\n    dbo.ats.tahun\n  FROM dbo.ats\n  WHERE dbo.ats.soft_delete = 0\n    AND dbo.ats.usia BETWEEN 7 AND 18\n    AND dbo.ats.kode_kabupaten = '220800'\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{semester_ats}}]]\n)\nSELECT jenjang, COUNT(*) AS jumlah_ats\nFROM ats_dim\nGROUP BY jenjang\nORDER BY jumlah_ats DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1379,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1387,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1385,
+            null
+          ]
+        },
+        "semester_ats": {
+          "type": "dimension",
+          "name": "semester_ats",
+          "display-name": "Semester (ATS)",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1411,
+            null
+          ]
+        }
+      }
+    },
+    "86": {
+      "name": "ATS per Kelompok Usia",
+      "description": "Jumlah ATS dikelompokkan menurut rentang usia sekolah: 7–12 (SD), 13–15 (SMP), dan 16–18 (SMA).",
+      "query": "WITH ats_dim AS (\n  SELECT\n    dbo.ats.ats_id,\n    dbo.ats.semester_id,\n    TRIM(dbo.ats.status) AS status,\n    dbo.ats.usia,\n    dbo.ats.kecamatan,\n    dbo.ats.desa_kelurahan AS desa,\n    COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,\n    dbo.ats.tahun\n  FROM dbo.ats\n  WHERE dbo.ats.soft_delete = 0\n    AND dbo.ats.usia BETWEEN 7 AND 18\n    AND dbo.ats.kode_kabupaten = '220800'\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{semester_ats}}]]\n)\nSELECT CASE\n         WHEN usia BETWEEN 7 AND 12 THEN '7-12 (SD)'\n         WHEN usia BETWEEN 13 AND 15 THEN '13-15 (SMP)'\n         ELSE '16-18 (SMA)'\n       END AS kelompok_usia,\n       COUNT(*) AS jumlah_ats\nFROM ats_dim\nGROUP BY 1\nORDER BY 1",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1379,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1387,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1385,
+            null
+          ]
+        },
+        "semester_ats": {
+          "type": "dimension",
+          "name": "semester_ats",
+          "display-name": "Semester (ATS)",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1411,
+            null
+          ]
+        }
+      }
+    },
+    "87": {
+      "name": "ATS per Tahun Pendataan",
+      "description": "Tahun pendataan ATS. Sebagian besar baris berasal dari pendataan 2023; periode pencatatan (semester_id) dapat difilter lewat filter Semester (ATS).",
+      "query": "WITH ats_dim AS (\n  SELECT\n    dbo.ats.ats_id,\n    dbo.ats.semester_id,\n    TRIM(dbo.ats.status) AS status,\n    dbo.ats.usia,\n    dbo.ats.kecamatan,\n    dbo.ats.desa_kelurahan AS desa,\n    COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,\n    dbo.ats.tahun\n  FROM dbo.ats\n  WHERE dbo.ats.soft_delete = 0\n    AND dbo.ats.usia BETWEEN 7 AND 18\n    AND dbo.ats.kode_kabupaten = '220800'\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{semester_ats}}]]\n)\nSELECT tahun, COUNT(*) AS jumlah_ats\nFROM ats_dim\nGROUP BY tahun\nORDER BY tahun",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1379,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1387,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1385,
+            null
+          ]
+        },
+        "semester_ats": {
+          "type": "dimension",
+          "name": "semester_ats",
+          "display-name": "Semester (ATS)",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1411,
+            null
+          ]
+        }
+      }
+    },
+    "88": {
+      "name": "15 Desa dengan ATS Terbanyak",
+      "description": "Peringkat 15 desa/kelurahan dengan jumlah ATS usia 7–18 tahun terbanyak.",
+      "query": "WITH ats_dim AS (\n  SELECT\n    dbo.ats.ats_id,\n    dbo.ats.semester_id,\n    TRIM(dbo.ats.status) AS status,\n    dbo.ats.usia,\n    dbo.ats.kecamatan,\n    dbo.ats.desa_kelurahan AS desa,\n    COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,\n    dbo.ats.tahun\n  FROM dbo.ats\n  WHERE dbo.ats.soft_delete = 0\n    AND dbo.ats.usia BETWEEN 7 AND 18\n    AND dbo.ats.kode_kabupaten = '220800'\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{semester_ats}}]]\n)\nSELECT desa, kecamatan, COUNT(*) AS jumlah_ats\nFROM ats_dim\nGROUP BY 1, 2\nORDER BY jumlah_ats DESC\nLIMIT 15",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1379,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1387,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1385,
+            null
+          ]
+        },
+        "semester_ats": {
+          "type": "dimension",
+          "name": "semester_ats",
+          "display-name": "Semester (ATS)",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1411,
+            null
+          ]
+        }
+      }
+    },
+    "90": {
+      "name": "Kondisi Ruang (Tercatat)",
+      "description": "Hanya terisi pada semester 2026/2027. Kondisi ruang belum tercatat untuk periode lain, sehingga memilih semester lama akan menampilkan kartu kosong.",
+      "query": "WITH sekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n)\nSELECT ref.jenis_kerusakan.klasifikasi AS kondisi,\n       COUNT(*) AS jumlah_ruang\nFROM dbo.ruang_longitudinal\nJOIN dbo.ruang ON dbo.ruang.id_ruang = dbo.ruang_longitudinal.id_ruang\nJOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id\nLEFT JOIN ref.jenis_kerusakan\n  ON ref.jenis_kerusakan.kerusakan_id = dbo.ruang_longitudinal.kerusakan_id\nWHERE dbo.ruang.\"Soft_delete\" = 0\n  AND dbo.ruang_longitudinal.semester_id = (\n        SELECT MAX(dbo.ruang_longitudinal.semester_id)\n          FROM dbo.ruang_longitudinal\n         WHERE dbo.ruang_longitudinal.\"Soft_delete\" = 0\n         [[AND {{semester_ruang}}]]\n      )\nGROUP BY 1\nORDER BY 2 DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        },
+        "semester_ruang": {
+          "type": "dimension",
+          "name": "semester_ruang",
+          "display-name": "Semester",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1699,
+            null
+          ]
+        }
+      }
+    },
+    "91": {
+      "name": "Rata-rata Tingkat Kerusakan Ruang",
+      "description": "Hanya terisi pada semester 2026/2027. Nilai 0-100, bukan nilai rupiah.",
+      "query": "WITH sekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n)\nSELECT ROUND(AVG(dbo.ruang_longitudinal.nilai_kerusakan), 2) AS rata_tingkat_kerusakan\nFROM dbo.ruang_longitudinal\nJOIN dbo.ruang ON dbo.ruang.id_ruang = dbo.ruang_longitudinal.id_ruang\nJOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id\nWHERE dbo.ruang.\"Soft_delete\" = 0\n  AND dbo.ruang_longitudinal.semester_id = (\n        SELECT MAX(dbo.ruang_longitudinal.semester_id)\n          FROM dbo.ruang_longitudinal\n         WHERE dbo.ruang_longitudinal.\"Soft_delete\" = 0\n         [[AND {{semester_ruang}}]]\n      )\nHAVING COUNT(dbo.ruang_longitudinal.nilai_kerusakan) > 0\n",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        },
+        "semester_ruang": {
+          "type": "dimension",
+          "name": "semester_ruang",
+          "display-name": "Semester",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1699,
+            null
+          ]
+        }
+      }
+    },
+    "92": {
+      "name": "Ruang Rusak Berat per Kecamatan",
+      "description": "Hanya terisi pada semester 2026/2027.",
+      "query": "WITH sekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n)\nSELECT sekolah_dim.kecamatan, COUNT(*) AS jumlah_ruang_rusak_berat\nFROM dbo.ruang_longitudinal\nJOIN dbo.ruang ON dbo.ruang.id_ruang = dbo.ruang_longitudinal.id_ruang\nJOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id\nJOIN ref.jenis_kerusakan\n  ON ref.jenis_kerusakan.kerusakan_id = dbo.ruang_longitudinal.kerusakan_id\nWHERE dbo.ruang.\"Soft_delete\" = 0\n  AND dbo.ruang_longitudinal.semester_id = (\n        SELECT MAX(dbo.ruang_longitudinal.semester_id)\n          FROM dbo.ruang_longitudinal\n         WHERE dbo.ruang_longitudinal.\"Soft_delete\" = 0\n         [[AND {{semester_ruang}}]]\n      )\n  AND ref.jenis_kerusakan.klasifikasi = 'Rusak Berat'\nGROUP BY 1\nORDER BY 2 DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        },
+        "semester_ruang": {
+          "type": "dimension",
+          "name": "semester_ruang",
+          "display-name": "Semester",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1699,
+            null
+          ]
+        }
+      }
+    },
+    "95": {
+      "name": "Sumber Air Bersih Sekolah",
+      "description": "Satu baris per sekolah per semester. Gunakan filter Semester untuk membandingkan periode 2013/2014 sampai 2026/2027.",
+      "query": "WITH sekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n)\nSELECT COALESCE(ref.sumber_air.nama, 'Tidak terdata') AS sumber_air,\n       COUNT(*) AS jumlah_sekolah\nFROM dbo.sanitasi\nJOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.sanitasi.sekolah_id\nLEFT JOIN ref.sumber_air ON ref.sumber_air.sumber_air_id = dbo.sanitasi.sumber_air_id\nWHERE dbo.sanitasi.\"Soft_delete\" = 0\n  AND dbo.sanitasi.semester_id = (\n        SELECT MAX(dbo.sanitasi.semester_id)\n          FROM dbo.sanitasi\n         WHERE dbo.sanitasi.\"Soft_delete\" = 0\n         [[AND {{semester_sanitasi}}]]\n      )\nGROUP BY 1\nORDER BY 2 DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        },
+        "semester_sanitasi": {
+          "type": "dimension",
+          "name": "semester_sanitasi",
+          "display-name": "Semester",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1760,
+            null
+          ]
+        }
+      }
+    },
+    "52": {
+      "name": "Total Rombel Aktif (Kelas)",
+      "description": "Jumlah rombongan belajar bertipe `Kelas` (`jenis_rombel = 1`) pada semester aktif (`ref.semester.periode_aktif = 1`) milik sekolah aktif.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n)\nSELECT COUNT(*) AS total_rombel\nFROM rombel_dim",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "56": {
+      "name": "Rata-rata Murid per Rombel",
+      "description": "Rata-rata jumlah murid per rombel kelas aktif, dihitung dari `dbo.anggota_rombel` aktif. Basisnya keanggotaan rombel (seluruh murid terdaftar), bukan NISN sah, supaya satu pembagian tidak mencampur dua basis hitung.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n),\nanggota AS (\n  SELECT dbo.anggota_rombel.rombongan_belajar_id,\n         COUNT(DISTINCT dbo.anggota_rombel.peserta_didik_id) AS jumlah_pd\n  FROM dbo.anggota_rombel\n  JOIN rombel_dim ON rombel_dim.rombongan_belajar_id = dbo.anggota_rombel.rombongan_belajar_id\n  WHERE dbo.anggota_rombel.\"Soft_delete\" = 0\n  GROUP BY 1\n)\nSELECT ROUND(AVG(jumlah_pd), 1) AS rata_murid_per_rombel\nFROM anggota",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "63": {
+      "name": "Rata-rata Rombel per Sekolah",
+      "description": "Untuk setiap jenjang: total rombel kelas dibagi jumlah sekolah aktif. Menunjukkan rata-rata jumlah rombel yang dikelola satu sekolah.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n)\nSELECT sekolah_dim.jenjang,\n       COUNT(DISTINCT sekolah_dim.sekolah_id) AS jumlah_sekolah,\n       COUNT(rombel_dim.rombongan_belajar_id) AS total_rombel,\n       ROUND(COUNT(rombel_dim.rombongan_belajar_id)::numeric\n             / NULLIF(COUNT(DISTINCT sekolah_dim.sekolah_id), 0), 1) AS rata_rombel_per_sekolah\nFROM sekolah_dim\nLEFT JOIN rombel_dim ON rombel_dim.sekolah_id = sekolah_dim.sekolah_id\nGROUP BY sekolah_dim.jenjang\nORDER BY rata_rombel_per_sekolah DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "65": {
+      "name": "Sekolah Tanpa Rombel",
+      "description": "Daftar sekolah aktif yang tidak memiliki rombel kelas pada semester aktif. Biasanya menandakan sekolah baru, tidak beroperasi, atau data rombel belum diisi.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n)\nSELECT sekolah_dim.nama_sekolah,\n       sekolah_dim.npsn,\n       sekolah_dim.jenjang,\n       sekolah_dim.status_sekolah,\n       sekolah_dim.kecamatan,\n       sekolah_dim.desa\nFROM sekolah_dim\nWHERE NOT EXISTS (\n        SELECT 1 FROM rombel_dim WHERE rombel_dim.sekolah_id = sekolah_dim.sekolah_id\n      )\nORDER BY sekolah_dim.kecamatan, sekolah_dim.nama_sekolah",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "66": {
+      "name": "Daftar Sekolah dan Jumlah Rombel, PD, PTK",
+      "description": "Satu baris per sekolah aktif berisi identitas sekolah, kecamatan, desa, jenjang, status, serta jumlah rombel, peserta didik, dan PTK aktif. Kartu rujukan (drill-down) untuk tab Sekolah.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n),\npd_dim AS (\n  SELECT\n    dbo.registrasi_peserta_didik.peserta_didik_id,\n    TRIM(dbo.peserta_didik.nisn) AS nisn,\n    dbo.registrasi_peserta_didik.sekolah_id,\n    dbo.registrasi_peserta_didik.nipd,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.registrasi_peserta_didik\n  JOIN dbo.peserta_didik\n    ON dbo.peserta_didik.peserta_didik_id = dbo.registrasi_peserta_didik.peserta_didik_id\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.registrasi_peserta_didik.sekolah_id\n  WHERE dbo.registrasi_peserta_didik.\"Soft_delete\" = 0\n    AND dbo.registrasi_peserta_didik.jenis_keluar_id IS NULL\n    AND TRIM(dbo.peserta_didik.nisn) ~ '^[0-9]{10}$'\n),\nptk_dim AS (\n  SELECT\n    dbo.ptk_terdaftar.ptk_id,\n    dbo.ptk_terdaftar.sekolah_id,\n    ref.jenis_ptk.jenis_ptk,\n    ref.jabatan_ptk.jabatan_ptk\n  FROM dbo.ptk_terdaftar\n  JOIN qc.vld_ptk ON qc.vld_ptk.ptk_id = dbo.ptk_terdaftar.ptk_id\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ptk_terdaftar.sekolah_id\n  LEFT JOIN ref.jenis_ptk ON ref.jenis_ptk.jenis_ptk_id = dbo.ptk_terdaftar.jenis_ptk_id\n  LEFT JOIN ref.jabatan_ptk ON ref.jabatan_ptk.jabatan_ptk_id = dbo.ptk_terdaftar.jabatan_ptk_id\n  WHERE dbo.ptk_terdaftar.\"Soft_delete\" = 0\n    AND dbo.ptk_terdaftar.jenis_keluar_id IS NULL\n    AND qc.vld_ptk.aktif = 1\n    AND dbo.ptk_terdaftar.ptk_induk = 1\n)\nSELECT sekolah_dim.nama_sekolah,\n       sekolah_dim.npsn,\n       sekolah_dim.jenjang,\n       sekolah_dim.status_sekolah,\n       sekolah_dim.kecamatan,\n       sekolah_dim.desa,\n       (SELECT COUNT(*) FROM rombel_dim\n         WHERE rombel_dim.sekolah_id = sekolah_dim.sekolah_id) AS jumlah_rombel,\n       (SELECT COUNT(DISTINCT nisn) FROM pd_dim\n         WHERE pd_dim.sekolah_id = sekolah_dim.sekolah_id) AS jumlah_pd,\n       (SELECT COUNT(DISTINCT ptk_id) FROM ptk_dim\n         WHERE ptk_dim.sekolah_id = sekolah_dim.sekolah_id) AS jumlah_ptk\nFROM sekolah_dim\nORDER BY jumlah_pd DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "67": {
+      "name": "Total Rombel Aktif (Kelas)",
+      "description": "Jumlah rombel kelas pada semester aktif di sekolah aktif (KPI pembuka tab Rombel).",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n)\nSELECT COUNT(*) AS total_rombel\nFROM rombel_dim",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "68": {
+      "name": "Rombel per Jenjang",
+      "description": "Jumlah rombel kelas pada setiap jenjang pendidikan.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n)\nSELECT jenjang, COUNT(*) AS jumlah_rombel\nFROM rombel_dim\nGROUP BY jenjang\nORDER BY jumlah_rombel DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "69": {
+      "name": "Rombel per Kecamatan",
+      "description": "Jumlah rombel kelas pada setiap kecamatan.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n)\nSELECT kecamatan, COUNT(*) AS jumlah_rombel\nFROM rombel_dim\nGROUP BY kecamatan\nORDER BY jumlah_rombel DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "70": {
+      "name": "Rata-rata Murid per Rombel per Jenjang",
+      "description": "Untuk setiap jenjang: rata-rata jumlah murid per rombel kelas, dihitung dari `dbo.anggota_rombel` aktif yang terhubung ke rombel kelas aktif.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n),\nanggota AS (\n  SELECT dbo.anggota_rombel.rombongan_belajar_id,\n         COUNT(DISTINCT dbo.anggota_rombel.peserta_didik_id) AS jumlah_pd\n  FROM dbo.anggota_rombel\n  JOIN rombel_dim ON rombel_dim.rombongan_belajar_id = dbo.anggota_rombel.rombongan_belajar_id\n  WHERE dbo.anggota_rombel.\"Soft_delete\" = 0\n  GROUP BY 1\n)\nSELECT rombel_dim.jenjang,\n       COUNT(*) AS jumlah_rombel,\n       ROUND(AVG(anggota.jumlah_pd), 1) AS rata_murid_per_rombel\nFROM anggota\nJOIN rombel_dim ON rombel_dim.rombongan_belajar_id = anggota.rombongan_belajar_id\nGROUP BY 1\nORDER BY rata_murid_per_rombel DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "71": {
+      "name": "Kepatuhan Ukuran Rombel terhadap Standar per Jenjang",
+      "description": "Setiap rombel kelas dibandingkan dengan standar ukuran jenjangnya, lalu dihitung jumlah rombel yang **sesuai standar** dan **melebihi standar** per jenjang. Standar: TK/KB/TPA 15, SD 28, SMP 32, Paket A 20, Paket B 25, Paket C 30 (Kepmendikdasmen 14/2026).",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n),\nanggota AS (\n  SELECT dbo.anggota_rombel.rombongan_belajar_id,\n         COUNT(DISTINCT dbo.anggota_rombel.peserta_didik_id) AS jumlah_pd\n  FROM dbo.anggota_rombel\n  JOIN rombel_dim ON rombel_dim.rombongan_belajar_id = dbo.anggota_rombel.rombongan_belajar_id\n  WHERE dbo.anggota_rombel.\"Soft_delete\" = 0\n  GROUP BY 1\n),\nukuran AS (\n  SELECT rombel_dim.jenjang,\n         anggota.jumlah_pd,\n         CASE\n         WHEN rombel_dim.jenjang IN ('TK', 'KB', 'TPA') THEN 15\n         WHEN rombel_dim.jenjang = 'SD' THEN 28\n         WHEN rombel_dim.jenjang = 'SMP' THEN 32\n         WHEN rombel_dim.jenjang IN ('PKBM', 'SKB')\n              AND rombel_dim.tingkat_pendidikan_id BETWEEN 31 AND 36 THEN 20\n         WHEN rombel_dim.jenjang IN ('PKBM', 'SKB')\n              AND rombel_dim.tingkat_pendidikan_id BETWEEN 37 AND 39 THEN 25\n         WHEN rombel_dim.jenjang IN ('PKBM', 'SKB')\n              AND rombel_dim.tingkat_pendidikan_id BETWEEN 40 AND 42 THEN 30\n         ELSE 32\n       END AS standar_maks\n  FROM anggota\n  JOIN rombel_dim ON rombel_dim.rombongan_belajar_id = anggota.rombongan_belajar_id\n)\nSELECT jenjang,\n       CASE WHEN jumlah_pd <= standar_maks THEN '01. Sesuai standar'\n            ELSE '02. Melebihi standar'\n       END AS kategori,\n       COUNT(*) AS jumlah_rombel\nFROM ukuran\nGROUP BY 1, 2\nORDER BY 1, 2",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "72": {
+      "name": "Rombel Melebihi Standar per Jenjang",
+      "description": "Daftar rombel kelas yang jumlah muridnya melebihi standar jenjangnya, beserta selisihnya. Standar: TK/KB/TPA 15, SD 28, SMP 32, Paket A 20, Paket B 25, Paket C 30. Diurutkan dari kelebihan terbesar.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n),\nanggota AS (\n  SELECT dbo.anggota_rombel.rombongan_belajar_id,\n         COUNT(DISTINCT dbo.anggota_rombel.peserta_didik_id) AS jumlah_pd\n  FROM dbo.anggota_rombel\n  JOIN rombel_dim ON rombel_dim.rombongan_belajar_id = dbo.anggota_rombel.rombongan_belajar_id\n  WHERE dbo.anggota_rombel.\"Soft_delete\" = 0\n  GROUP BY 1\n),\nukuran AS (\n  SELECT rombel_dim.nama_sekolah,\n         rombel_dim.npsn,\n         rombel_dim.jenjang,\n         rombel_dim.kecamatan,\n         rombel_dim.nama_rombel,\n         anggota.jumlah_pd,\n         CASE\n         WHEN rombel_dim.jenjang IN ('TK', 'KB', 'TPA') THEN 15\n         WHEN rombel_dim.jenjang = 'SD' THEN 28\n         WHEN rombel_dim.jenjang = 'SMP' THEN 32\n         WHEN rombel_dim.jenjang IN ('PKBM', 'SKB')\n              AND rombel_dim.tingkat_pendidikan_id BETWEEN 31 AND 36 THEN 20\n         WHEN rombel_dim.jenjang IN ('PKBM', 'SKB')\n              AND rombel_dim.tingkat_pendidikan_id BETWEEN 37 AND 39 THEN 25\n         WHEN rombel_dim.jenjang IN ('PKBM', 'SKB')\n              AND rombel_dim.tingkat_pendidikan_id BETWEEN 40 AND 42 THEN 30\n         ELSE 32\n       END AS standar_maks\n  FROM anggota\n  JOIN rombel_dim ON rombel_dim.rombongan_belajar_id = anggota.rombongan_belajar_id\n)\nSELECT nama_sekolah,\n       npsn,\n       jenjang,\n       kecamatan,\n       nama_rombel,\n       jumlah_pd,\n       standar_maks,\n       jumlah_pd - standar_maks AS kelebihan\nFROM ukuran\nWHERE jumlah_pd > standar_maks\nORDER BY kelebihan DESC, jumlah_pd DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "73": {
+      "name": "Rombel dengan Wali Kelas Tidak Aktif",
+      "description": "Daftar sekolah yang memiliki rombel kelas tanpa wali kelas aktif: `ptk_id` kosong, atau PTK-nya tidak lagi aktif (`qc.vld_ptk.aktif <> 1` / sudah keluar).",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n)\nSELECT rombel_dim.nama_sekolah,\n       rombel_dim.npsn,\n       rombel_dim.jenjang,\n       rombel_dim.kecamatan,\n       COUNT(*) AS rombel_tanpa_wali_aktif\nFROM rombel_dim\nWHERE rombel_dim.wali_kelas_id IS NULL\n   OR NOT EXISTS (\n        SELECT 1\n        FROM dbo.ptk_terdaftar\n        JOIN qc.vld_ptk ON qc.vld_ptk.ptk_id = dbo.ptk_terdaftar.ptk_id\n        WHERE dbo.ptk_terdaftar.ptk_id = rombel_dim.wali_kelas_id\n          AND dbo.ptk_terdaftar.\"Soft_delete\" = 0\n          AND dbo.ptk_terdaftar.jenis_keluar_id IS NULL\n          AND qc.vld_ptk.aktif = 1\n      )\nGROUP BY 1, 2, 3, 4\nORDER BY rombel_tanpa_wali_aktif DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "77": {
+      "name": "Peserta Didik per Tingkat Kelas",
+      "description": "Jumlah peserta didik aktif menurut tingkat/kelas (Kelas 1 sampai Kelas 12, termasuk tingkat SLB/SMK bila ada), dihubungkan melalui keanggotaan rombel aktif.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n),\npd_dim AS (\n  SELECT\n    dbo.registrasi_peserta_didik.peserta_didik_id,\n    TRIM(dbo.peserta_didik.nisn) AS nisn,\n    dbo.registrasi_peserta_didik.sekolah_id,\n    dbo.registrasi_peserta_didik.nipd,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.registrasi_peserta_didik\n  JOIN dbo.peserta_didik\n    ON dbo.peserta_didik.peserta_didik_id = dbo.registrasi_peserta_didik.peserta_didik_id\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.registrasi_peserta_didik.sekolah_id\n  WHERE dbo.registrasi_peserta_didik.\"Soft_delete\" = 0\n    AND dbo.registrasi_peserta_didik.jenis_keluar_id IS NULL\n    AND TRIM(dbo.peserta_didik.nisn) ~ '^[0-9]{10}$'\n)\nSELECT ref.tingkat_pendidikan.nama AS tingkat,\n       COUNT(DISTINCT pd_dim.nisn) AS jumlah_pd\nFROM pd_dim\nJOIN dbo.anggota_rombel\n  ON dbo.anggota_rombel.peserta_didik_id = pd_dim.peserta_didik_id\n AND dbo.anggota_rombel.\"Soft_delete\" = 0\nJOIN rombel_dim ON rombel_dim.rombongan_belajar_id = dbo.anggota_rombel.rombongan_belajar_id\nJOIN ref.tingkat_pendidikan\n  ON ref.tingkat_pendidikan.tingkat_pendidikan_id = rombel_dim.tingkat_pendidikan_id\nGROUP BY rombel_dim.tingkat_pendidikan_id, ref.tingkat_pendidikan.nama\nORDER BY rombel_dim.tingkat_pendidikan_id",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "93": {
+      "name": "Kecukupan Ruang Kelas terhadap Rombel",
+      "description": "Jumlah rombel mengikuti semester aktif/terbaru; jumlah ruang kelas tidak memiliki dimensi semester.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb\n                            WHERE rb.semester_id = s.semester_id\n                              AND rb.\"Soft_delete\" = 0\n                              AND rb.jenis_rombel = 1)),\n           (SELECT MAX(rb.semester_id)\n              FROM dbo.rombongan_belajar rb\n             WHERE rb.\"Soft_delete\" = 0\n               AND rb.jenis_rombel = 1)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\nrombel_dim AS (\n  SELECT\n    dbo.rombongan_belajar.rombongan_belajar_id,\n    dbo.rombongan_belajar.tingkat_pendidikan_id,\n    dbo.rombongan_belajar.nama AS nama_rombel,\n    dbo.rombongan_belajar.ptk_id AS wali_kelas_id,\n    sekolah_dim.sekolah_id,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.rombongan_belajar\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id\n  WHERE dbo.rombongan_belajar.\"Soft_delete\" = 0\n    AND dbo.rombongan_belajar.jenis_rombel = 1\n    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)\n),\nper_sekolah AS (\n  SELECT sekolah_dim.sekolah_id,\n         sekolah_dim.jenjang,\n         (SELECT COUNT(*)\n            FROM dbo.ruang\n            JOIN ref.jenis_prasarana\n              ON ref.jenis_prasarana.jenis_prasarana_id = dbo.ruang.jenis_prasarana_id\n           WHERE dbo.ruang.sekolah_id = sekolah_dim.sekolah_id\n             AND dbo.ruang.\"Soft_delete\" = 0\n             AND ref.jenis_prasarana.nama = 'Ruang Teori/Kelas') AS ruang_kelas,\n         (SELECT COUNT(*) FROM rombel_dim WHERE rombel_dim.sekolah_id = sekolah_dim.sekolah_id) AS rombel\n  FROM sekolah_dim\n)\nSELECT jenjang,\n       SUM(ruang_kelas) AS total_ruang_kelas,\n       SUM(rombel) AS total_rombel,\n       ROUND(SUM(ruang_kelas)::numeric / NULLIF(SUM(rombel), 0), 2) AS rasio_ruang_vs_rombel\nFROM per_sekolah\nGROUP BY jenjang\nORDER BY rasio_ruang_vs_rombel",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    },
+    "80": {
+      "name": "Rata-rata Jarak dan Waktu Tempuh ke Sekolah",
+      "description": "Untuk setiap jenjang: rata-rata jarak rumah–sekolah (km) dan waktu tempuh (menit) dari `dbo.peserta_didik_longitudinal` semester aktif.",
+      "query": "WITH semester_acuan AS (\n  SELECT COALESCE(\n           (SELECT s.semester_id\n              FROM ref.semester s\n             WHERE s.periode_aktif = 1\n               AND EXISTS (SELECT 1 FROM dbo.peserta_didik_longitudinal pl\n                            WHERE pl.semester_id = s.semester_id\n                              AND pl.\"Soft_delete\" = 0)),\n           (SELECT MAX(pl.semester_id)\n              FROM dbo.peserta_didik_longitudinal pl\n             WHERE pl.\"Soft_delete\" = 0)\n         ) AS semester_id\n),\nsekolah_dim AS (\n  SELECT\n    dbo.sekolah.sekolah_id,\n    dbo.sekolah.npsn,\n    dbo.sekolah.nama AS nama_sekolah,\n    ref.mst_wilayah.nama AS kecamatan,\n    dbo.sekolah.desa_kelurahan AS desa,\n    ref.bentuk_pendidikan.nama AS jenjang,\n    CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,\n    COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan\n  FROM dbo.sekolah\n  JOIN ref.mst_wilayah\n    ON ref.mst_wilayah.kode_wilayah = COALESCE(\n         (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END\n            FROM ref.mst_wilayah w\n           WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),\n         dbo.sekolah.kode_wilayah)\n  JOIN ref.bentuk_pendidikan\n    ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id\n  LEFT JOIN ref.status_kepemilikan\n    ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id\n  WHERE dbo.sekolah.keaktifan = 1\n    AND dbo.sekolah.\"Soft_delete\" = 0\n  [[AND {{kecamatan}}]]\n  [[AND {{desa}}]]\n  [[AND {{jenjang}}]]\n  [[AND {{status_sekolah}}]]\n),\npd_dim AS (\n  SELECT\n    dbo.registrasi_peserta_didik.peserta_didik_id,\n    TRIM(dbo.peserta_didik.nisn) AS nisn,\n    dbo.registrasi_peserta_didik.sekolah_id,\n    dbo.registrasi_peserta_didik.nipd,\n    sekolah_dim.npsn,\n    sekolah_dim.nama_sekolah,\n    sekolah_dim.jenjang,\n    sekolah_dim.kecamatan\n  FROM dbo.registrasi_peserta_didik\n  JOIN dbo.peserta_didik\n    ON dbo.peserta_didik.peserta_didik_id = dbo.registrasi_peserta_didik.peserta_didik_id\n  JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.registrasi_peserta_didik.sekolah_id\n  WHERE dbo.registrasi_peserta_didik.\"Soft_delete\" = 0\n    AND dbo.registrasi_peserta_didik.jenis_keluar_id IS NULL\n    AND TRIM(dbo.peserta_didik.nisn) ~ '^[0-9]{10}$'\n),\npd_unik AS (\n  SELECT DISTINCT ON (nisn) nisn, peserta_didik_id, jenjang\n  FROM pd_dim\n  ORDER BY nisn, peserta_didik_id\n)\nSELECT pd_unik.jenjang,\n       COUNT(*) AS jumlah_pd_terdata,\n       ROUND(AVG(dbo.peserta_didik_longitudinal.jarak_rumah_ke_sekolah_km), 2) AS rata_jarak_km,\n       ROUND(AVG(dbo.peserta_didik_longitudinal.menit_tempuh_ke_sekolah), 1) AS rata_menit_tempuh\nFROM dbo.peserta_didik_longitudinal\nJOIN pd_unik ON pd_unik.peserta_didik_id = dbo.peserta_didik_longitudinal.peserta_didik_id\nWHERE dbo.peserta_didik_longitudinal.\"Soft_delete\" = 0\n  AND dbo.peserta_didik_longitudinal.semester_id = (SELECT semester_id FROM semester_acuan)\nGROUP BY pd_unik.jenjang\nORDER BY jumlah_pd_terdata DESC",
+      "template_tags": {
+        "desa": {
+          "type": "dimension",
+          "name": "desa",
+          "display-name": "Desa",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1790,
+            null
+          ]
+        },
+        "jenjang": {
+          "type": "dimension",
+          "name": "jenjang",
+          "display-name": "Jenjang",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            1993,
+            null
+          ]
+        },
+        "kecamatan": {
+          "type": "dimension",
+          "name": "kecamatan",
+          "display-name": "Kecamatan",
+          "widget-type": "string/=",
+          "dimension": [
+            "field",
+            2546,
+            null
+          ]
+        },
+        "status_sekolah": {
+          "type": "dimension",
+          "name": "status_sekolah",
+          "display-name": "Status Sekolah",
+          "widget-type": "number/=",
+          "dimension": [
+            "field",
+            1811,
+            null
+          ]
+        }
+      }
+    }
+  },
+  "dashboard_parameters": {
+    "p-semester": {
+      "id": "p-semester",
+      "name": "Semester",
+      "slug": "semester_sarana",
+      "type": "string/=",
+      "sectionId": "string",
+      "isMultiSelect": false,
+      "values_source_type": "static-list",
+      "values_source_config": {
+        "values": [
+          [
+            "20261",
+            "2026/2027 Gasal"
+          ],
+          [
+            "20252",
+            "2025/2026 Genap"
+          ],
+          [
+            "20251",
+            "2025/2026 Gasal"
+          ],
+          [
+            "20242",
+            "2024/2025 Genap"
+          ],
+          [
+            "20241",
+            "2024/2025 Gasal"
+          ],
+          [
+            "20232",
+            "2023/2024 Genap"
+          ],
+          [
+            "20231",
+            "2023/2024 Gasal"
+          ],
+          [
+            "20222",
+            "2022/2023 Genap"
+          ],
+          [
+            "20221",
+            "2022/2023 Gasal"
+          ],
+          [
+            "20212",
+            "2021/2022 Genap"
+          ],
+          [
+            "20211",
+            "2021/2022 Gasal"
+          ],
+          [
+            "20202",
+            "2020/2021 Genap"
+          ],
+          [
+            "20201",
+            "2020/2021 Gasal"
+          ],
+          [
+            "20192",
+            "2019/2020 Genap"
+          ],
+          [
+            "20191",
+            "2019/2020 Gasal"
+          ],
+          [
+            "20182",
+            "2018/2019 Genap"
+          ],
+          [
+            "20181",
+            "2018/2019 Gasal"
+          ],
+          [
+            "20172",
+            "2017/2018 Genap"
+          ],
+          [
+            "20171",
+            "2017/2018 Gasal"
+          ],
+          [
+            "20162",
+            "2016/2017 Genap"
+          ],
+          [
+            "20161",
+            "2016/2017 Gasal"
+          ],
+          [
+            "20152",
+            "2015/2016 Genap"
+          ],
+          [
+            "20151",
+            "2015/2016 Gasal"
+          ],
+          [
+            "20142",
+            "2014/2015 Genap"
+          ],
+          [
+            "20141",
+            "2014/2015 Gasal"
+          ],
+          [
+            "20132",
+            "2013/2014 Genap"
+          ]
+        ]
+      }
+    },
+    "p-semester-ats": {
+      "id": "p-semester-ats",
+      "name": "Semester (ATS)",
+      "slug": "semester_ats",
+      "type": "string/=",
+      "sectionId": "string",
+      "isMultiSelect": false,
+      "values_source_type": "static-list",
+      "values_source_config": {
+        "values": [
+          [
+            "20252",
+            "2025/2026 Genap"
+          ],
+          [
+            "20251",
+            "2025/2026 Gasal"
+          ],
+          [
+            "20241",
+            "2024/2025 Gasal"
+          ],
+          [
+            "20232",
+            "2023/2024 Genap"
+          ],
+          [
+            "20231",
+            "2023/2024 Gasal"
+          ],
+          [
+            "20222",
+            "2022/2023 Genap"
+          ],
+          [
+            "20221",
+            "2022/2023 Gasal"
+          ],
+          [
+            "20212",
+            "2021/2022 Genap"
+          ],
+          [
+            "20211",
+            "2021/2022 Gasal"
+          ],
+          [
+            "20202",
+            "2020/2021 Genap"
+          ]
+        ]
+      }
+    },
+    "p-status": {
+      "id": "p-status",
+      "name": "Status Sekolah",
+      "slug": "status_sekolah",
+      "type": "number/=",
+      "sectionId": "number",
+      "isMultiSelect": true,
+      "values_source_type": "static-list",
+      "values_source_config": {
+        "values": [
+          [
+            1,
+            "Negeri"
+          ],
+          [
+            2,
+            "Swasta"
+          ]
+        ]
+      }
+    }
+  },
+  "dashcard_parameter_mappings": {
+    "130": {
+      "card_id": 82,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 82,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang-ats",
+          "card_id": 82,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 82,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester-ats",
+          "card_id": 82,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ats"
+            ]
+          ]
+        }
+      ]
+    },
+    "131": {
+      "card_id": 83,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 83,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang-ats",
+          "card_id": 83,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 83,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester-ats",
+          "card_id": 83,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ats"
+            ]
+          ]
+        }
+      ]
+    },
+    "132": {
+      "card_id": 84,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 84,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang-ats",
+          "card_id": 84,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 84,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester-ats",
+          "card_id": 84,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ats"
+            ]
+          ]
+        }
+      ]
+    },
+    "133": {
+      "card_id": 85,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 85,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang-ats",
+          "card_id": 85,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 85,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester-ats",
+          "card_id": 85,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ats"
+            ]
+          ]
+        }
+      ]
+    },
+    "134": {
+      "card_id": 86,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 86,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang-ats",
+          "card_id": 86,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 86,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester-ats",
+          "card_id": 86,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ats"
+            ]
+          ]
+        }
+      ]
+    },
+    "135": {
+      "card_id": 87,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 87,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang-ats",
+          "card_id": 87,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 87,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester-ats",
+          "card_id": 87,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ats"
+            ]
+          ]
+        }
+      ]
+    },
+    "136": {
+      "card_id": 88,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 88,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang-ats",
+          "card_id": 88,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 88,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester-ats",
+          "card_id": 88,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ats"
+            ]
+          ]
+        }
+      ]
+    },
+    "138": {
+      "card_id": 90,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 90,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang",
+          "card_id": 90,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 90,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-status",
+          "card_id": 90,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "status_sekolah"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester",
+          "card_id": 90,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ruang"
+            ]
+          ]
+        }
+      ]
+    },
+    "139": {
+      "card_id": 91,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 91,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang",
+          "card_id": 91,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 91,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-status",
+          "card_id": 91,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "status_sekolah"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester",
+          "card_id": 91,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ruang"
+            ]
+          ]
+        }
+      ]
+    },
+    "141": {
+      "card_id": 92,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 92,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang",
+          "card_id": 92,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 92,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-status",
+          "card_id": 92,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "status_sekolah"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester",
+          "card_id": 92,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_ruang"
+            ]
+          ]
+        }
+      ]
+    },
+    "143": {
+      "card_id": 95,
+      "parameter_mappings": [
+        {
+          "parameter_id": "p-desa",
+          "card_id": 95,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "desa"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-jenjang",
+          "card_id": 95,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "jenjang"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-kecamatan",
+          "card_id": 95,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "kecamatan"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-status",
+          "card_id": 95,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "status_sekolah"
+            ]
+          ]
+        },
+        {
+          "parameter_id": "p-semester",
+          "card_id": 95,
+          "target": [
+            "dimension",
+            [
+              "template-tag",
+              "semester_sanitasi"
+            ]
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -10,10 +10,11 @@ dan angka ekspektasinya dicatat, sehingga bisa dipakai sebagai *sanity check* sa
 | Skema sumber | `dbo` (transaksional), `ref` (referensi), `qc` (validasi) |
 | Dashboard target | Dashboard publik (id **2**, `public_uuid` tersimpan di `docs/metabase-ids.md`) |
 | Semester aktif | `ref.semester.periode_aktif = 1` → **20261** (2026/2027 Gasal) |
+| Filter periode | 2 parameter: **Semester** (SAR) dan **Semester (ATS)** — lihat §3.1 |
 | Jumlah tab | 6 |
 | Jumlah kartu | 46 (8 / 8 / 7 / 8 / 7 / 8) |
 | Dashboard admin | **dihapus** (tidak dipakai, mengurangi beban render) |
-| Tanggal validasi | 21 Oktober 2026 |
+| Tanggal validasi | 22 Oktober 2026 |
 
 ---
 
@@ -43,6 +44,21 @@ dan angka ekspektasinya dicatat, sehingga bisa dipakai sebagai *sanity check* sa
    93 baris ATS berasal dari luar Karangasem (Denpasar, Badung, bahkan luar Bali).
 10. **Tidak ada data pribadi** (nama murid/PTK/ATS, NIK, NISN, alamat) yang ditampilkan.
     Nama sekolah boleh tampil karena merupakan entitas publik.
+11. **Filter semester diberikan hanya pada tab yang datanya lintas periode** (§2.3): tab **ATS**
+    (10 periode) dan tab **Sarana Prasarana** (26 periode). Empat tab lain hanya punya satu
+    periode di basis data, sehingga dropdown semester di sana akan selalu berisi satu nilai
+    dan tidak berguna.
+12. **Kartu tanpa filter semester dipin ke semester acuan**, bukan dibiarkan menjumlah semua
+    periode. Definisi "semester acuan" ada di §4.1: semester aktif bila entitasnya sudah punya
+    data pada semester itu, jika tidak semester terbaru yang ada datanya. Tanpa pin ini, kartu
+    seperti "Total Rombel" akan menjadi 0 pada hari pertama semester baru sebelum sinkronisasi.
+13. **Filter semester memakai native field filter** (`type: dimension`) seperti filter lain,
+    ditaruh **di dalam** subquery `MAX(semester_id)` (Sarana Prasarana) atau di dalam blok
+    opsional `[[AND {{…}}]]` (ATS). Konsekuensinya: filter kosong = semester terbaru (SAR) atau
+    semua periode (ATS) — lihat §3.1.
+    Variabel teks (`type: text`) **tidak dipakai** karena parameter dashboard yang kosong
+    dikirim sebagai `null` dan Metabase menolaknya dengan
+    *"Parameter yang diperlukan hilang"*, sehingga kartu gagal tampil.
 
 ---
 
@@ -51,13 +67,13 @@ dan angka ekspektasinya dicatat, sehingga bisa dipakai sebagai *sanity check* sa
 | Entitas | Definisi | Ekspektasi |
 |---|---|---|
 | **Sekolah aktif** | `dbo.sekolah.keaktifan = 1 AND "Soft_delete" = 0` | **604** |
-| **Rombel aktif (kelas)** | `"Soft_delete" = 0 AND jenis_rombel = 1 AND semester_id = (semester periode_aktif)` | **3.482** |
+| **Rombel aktif (kelas)** | `"Soft_delete" = 0 AND jenis_rombel = 1 AND semester_id = (semester acuan §4.1)` | **3.482** |
 | **Registrasi aktif** | `registrasi_peserta_didik."Soft_delete" = 0 AND jenis_keluar_id IS NULL` di sekolah aktif | **70.463** murid unik |
 | **Peserta didik aktif** | registrasi aktif **dan** `TRIM(peserta_didik.nisn) ~ '^[0-9]{10}$'`, dihitung unik per `nisn` | **68.952** |
 | **NISN sah** | 10 digit numerik; tidak memakai `qc.vld_peserta_didik` sebagai dasar | **68.976** registrasi (97,89%) |
 | **PTK aktif** | `ptk_terdaftar."Soft_delete" = 0 AND jenis_keluar_id IS NULL AND qc.vld_ptk.aktif = 1 AND ptk_induk = 1` | **4.981** unik (guru **3.879**) |
 | **ATS usia sekolah** | `dbo.ats.soft_delete = 0 AND usia BETWEEN 7 AND 18 AND kode_kabupaten = '220800'` (domisili) | **3.032** |
-| **Ruang kondisi tercatat** | `dbo.ruang_longitudinal.semester_id = semester periode_aktif` dan ruang tidak dihapus | **1.769** dari 11.449 ruang |
+| **Ruang kondisi tercatat** | `dbo.ruang_longitudinal.semester_id = semester terpilih/terbaru` dan ruang tidak dihapus | **1.769** dari 11.449 ruang |
 
 ### 2.1 Standar ukuran rombel per jenjang
 
@@ -89,6 +105,48 @@ sudut pandang ini satu-satunya yang konsisten untuk semua entitas sekolah.
 > **Tidak ada kolom `jenis_kelamin` maupun `agama` untuk peserta didik**, sehingga kartu demografi
 > murid per gender/agama tidak dibuat. Hanya tabel `dbo.ats` yang punya `jenis_kelamin`.
 
+### 2.3 Cakupan periode per entitas (dasar keputusan filter semester)
+
+Kode semester = **4 digit tahun ajaran mulai + `1` Gasal / `2` Genap**, mis. `20232` =
+2023/2024 Genap dan `20261` = 2026/2027 Gasal.
+
+| Entitas | Kolom periode | Periode tersedia | Rentang | Catatan |
+|---|---|---:|---|---|
+| `dbo.ats` | `semester_id` | **10** | 20202 – 20252 | periode pencatatan ATS, bukan tahun lahir |
+| `dbo.sanitasi` | `semester_id` | **26** | 20132 – 20261 | satu baris per sekolah per semester |
+| `dbo.ruang_longitudinal` | `semester_id` | 1 | 20261 | riwayat belum diisi |
+| `dbo.peserta_didik_longitudinal` | `semester_id` | 1 | 20261 | riwayat belum diisi |
+| `dbo.rombongan_belajar` | `semester_id` | 1 | 20261 | hanya semester berjalan |
+| `dbo.pembelajaran` | `semester_id` | 1 | 20261 | |
+| `dbo.registrasi_peserta_didik` | — | 0 | — | tidak punya kolom periode (potret aktif) |
+| `dbo.ptk_terdaftar` | `tahun_ajaran_id` | 1 | 2026 | penugasan per tahun ajaran |
+| `ref.semester` | `semester_id` | 2 | 20252, 20261 | tabel referensi, bukan data |
+
+Karena hanya **2 dari 6 tab** yang punya data lintas periode, filter semester hanya dipasang di
+tab **ATS** dan **Sarana Prasarana** (§3.1). Menambahkan dropdown di tab lain hanya akan menampilkan
+satu pilihan (`2026/2027 Gasal`) dan tidak memfilter apa pun.
+
+Sebaran ATS per periode (dasar *sanity check* filter ATS, `soft_delete = 0`, usia 7–18,
+`kode_kabupaten = '220800'`):
+
+| Semester | Label | ATS |
+|---|---|---:|
+| 20202 | 2020/2021 Genap | 62 |
+| 20211 | 2021/2022 Gasal | 53 |
+| 20212 | 2021/2022 Genap | 213 |
+| 20221 | 2022/2023 Gasal | 71 |
+| 20222 | 2022/2023 Genap | 601 |
+| 20231 | 2023/2024 Gasal | 15 |
+| 20232 | 2023/2024 Genap | **1.827** |
+| 20241 | 2024/2025 Gasal | 6 |
+| 20251 | 2025/2026 Gasal | 183 |
+| 20252 | 2025/2026 Genap | 1 |
+| **Total** | tanpa filter | **3.032** |
+
+20232 menyumbang 60,3% data ATS; 2023 (tahun pendataan, kolom `dbo.ats.tahun`) menyumbang 2.490 baris.
+Karena itu tab ATS **default-nya tanpa filter** (semua periode, 3.032) supaya angka besar tidak
+tiba-tiba menyusut menjadi 1 saat default dipatok ke periode terbaru.
+
 ---
 
 ## 3. Filter
@@ -104,14 +162,33 @@ sudut pandang ini satu-satunya yang konsisten untuk semua entitas sekolah.
 | Jenis PTK | `jenis_ptk` | ✅¹ | — | — | — | — | — |
 | Jabatan PTK | `jabatan_ptk` | ✅¹ | — | — | — | — | — |
 | Jenjang ATS | `jenjang` (ATS) | — | — | — | — | ✅ | — |
+| **Semester** | `semester_ruang` / `semester_sanitasi` | — | — | — | — | — | ✅² |
+| **Semester (ATS)** | `semester_ats` | — | — | — | — | ✅ | — |
 
 ¹ Hanya dipetakan ke kartu **Q-EXE-04 (Total PTK Aktif)**. Filter ini tidak dipetakan ke kartu lain
 di tab Eksekutif karena kartu lain tidak menghitung PTK; memetakannya justru akan mengubah arti angka
 (contoh: "Total Sekolah" tidak berubah bila difilter jenis PTK).
 
+² Dua tag berbeda karena field filter harus menunjuk kolom yang ada di `FROM` kartunya:
+`semester_ruang` → `dbo.ruang_longitudinal.semester_id` (Q-SAR-02/03/04),
+`semester_sanitasi` → `dbo.sanitasi.semester_id` (Q-SAR-07). Keduanya dipetakan ke **satu**
+parameter dashboard `p-semester`, jadi pengguna hanya melihat satu filter "Semester".
+
 Tab ATS memakai filter **Jenjang (ATS)** tersendiri karena domain nilainya berbeda
 (`SD / sederajat`, `Paket A/B/C`, dst.), bukan nama bentuk pendidikan sekolah.
 Parameter dashboard-nya dipisah agar tidak tertukar.
+
+**Perilaku filter semester** (penting untuk uji terima):
+
+| Tab | Filter kosong (default) | Filter diisi `20252` | Kartu yang tidak punya filter |
+|---|---|---|---|
+| ATS | semua periode → **3.032** | hanya 2025/2026 Genap → **1** | — |
+| Sarana Prasarana | semester terbaru yang ada data → **20261** | 2025/2026 Genap → Q-SAR-07 Ledeng/PAM **436**; Q-SAR-02/03/04 **kosong** (riwayat ruang belum ada) | Q-SAR-01/05/06/08 (tanpa periode), Q-SAR-05 rombel dipin |
+| Eksekutif, Sekolah, Rombel, Peserta Didik | tidak ada filter semester | — | semua dipin ke semester acuan §4.1 |
+
+Metabase hanya menampilkan parameter yang **terpetakan ke dashcard pada tab aktif**, sehingga
+"Semester (ATS)" muncul di tab ATS, "Semester" muncul di tab Sarana Prasarana, dan keduanya tidak
+mengotori tab lain.
 
 Untuk semua tab selain ATS, filter Kecamatan dan Desa mengikuti **lokasi satuan pendidikan**
 (§2.2). Tab ATS memakai **domisili ATS**.
@@ -129,9 +206,17 @@ Untuk semua tab selain ATS, filter Kecamatan dan Desa mengikuti **lokasi satuan 
 | `jenis_ptk` | `ref.jenis_ptk.jenis_ptk` | **2264** | Guru, Kepala Sekolah, Tenaga Kependidikan |
 | `jabatan_ptk` | `ref.jabatan_ptk.jabatan_ptk` | **2072** | 109 jabatan |
 | `kecamatan` (ATS) | `dbo.ats.kecamatan` | **1385** | 8 kecamatan (nama identik dengan sekolah) |
+| `semester_ats` | `dbo.ats.semester_id` | **1411** | 10 periode (statik) |
+| `semester_ruang` | `dbo.ruang_longitudinal.semester_id` | **1699** | 26 periode (statik) |
+| `semester_sanitasi` | `dbo.sanitasi.semester_id` | **1760** | 26 periode (statik) |
 
-² Status memakai **static list** (`Negeri = 1`, `Swasta = 2`) sehingga dropdown sudah berlabel
-tanpa perlu display values pada field 1811.
+Field lain yang sudah dipetakan dan siap dipakai bila kelak ada kartu berperiode:
+`dbo.rombongan_belajar.semester_id` = **1618**, `dbo.peserta_didik_longitudinal.semester_id` = **1535**,
+`dbo.pembelajaran.semester_id` = **1526**, `ref.semester.semester_id` = **2629**,
+`ref.semester.nama` = **2624**.
+
+² Status memakai **static list** sehingga dropdown sudah berlabel tanpa perlu display values
+pada field 1811. Urutan pasangan pada static list adalah **`[nilai, label]`** — lihat §3.2.1.
 
 ### 3.2.1 Sumber nilai dropdown (implementasi)
 
@@ -148,13 +233,33 @@ Karena itu nilai dropdown diambil dari **6 kartu bantu** di collection *Filter �
 | Kecamatan | Card `97` — `Daftar Kecamatan` | 8 |
 | Desa/Kelurahan | Card `98` — `Daftar Desa/Kelurahan` | 88 |
 | Jenjang Satuan Pendidikan | Card `99` — `Daftar Jenjang Satuan Pendidikan` | 7 |
-| Status Sekolah | Static list (Negeri = 1, Swasta = 2) | 2 |
+| Status Sekolah | Static list (`[1, "Negeri"]`, `[2, "Swasta"]`) | 2 |
 | Jenis PTK | Card `100` — `Daftar Jenis PTK` | 3 |
 | Jabatan PTK | Card `101` — `Daftar Jabatan PTK` | 26 |
 | Jenjang (ATS) | Card `102` — `Daftar Jenjang ATS` | 6 |
+| Semester | Static list 26 periode (§3.4) | 26 |
+| Semester (ATS) | Static list 10 periode (§3.4) | 10 |
 
 Kartu bantu boleh diubah kapan saja (mis. desa baru); dropdown ikut menyesuaikan tanpa menyentuh
 SQL 46 kartu.
+
+**Urutan pasangan static list: `[nilai, label]`, bukan `[label, nilai]`.**
+Frontend Metabase 0.55 membaca elemen **kedua** sebagai teks yang ditampilkan, sedangkan nilai yang
+dikirim ke query adalah elemen **pertama**. Salah urutan tidak error, tetapi dropdown menampilkan
+kode mentah (mis. `20261`) dan — lebih berbahaya — filter mengirim label sebagai nilai
+(`status_sekolah = 'Negeri'` → seluruh kartu gagal). Karena itu:
+
+```json
+"values_source_type": "static-list",
+"values_source_config": {
+  "values": [["20261", "2026/2027 Gasal"], ["20252", "2025/2026 Genap"]]
+}
+```
+
+Parameter "Status Sekolah" sebelumnya memakai urutan terbalik (`["Negeri", 1]`) sehingga memilih
+"Swasta" membuat semua kartu error; sudah diperbaiki menjadi `[[1, "Negeri"], [2, "Swasta"]]`.
+Semester memakai static list, bukan kartu bantu, karena kartu bantu hanya menyuplai `value_field`:
+label yang dihasilkan tetap kode (`20261`), bukan "2026/2027 Gasal".
 
 ### 3.3 Filter yang **tidak tersedia** di basis data
 
@@ -163,6 +268,9 @@ SQL 46 kartu.
 | **Status Kepegawaian** (PNS, GTY/PTY, Honorer, …) | ❌ Tidak ada | `ref.status_kepegawaian` ada, tetapi **tidak ada satu pun kolom `status_kepegawaian_id`** di `dbo.ptk`, `dbo.ptk_terdaftar`, maupun tabel `dbo` lain |
 | **Pendidikan PTK** (S1, S2, D3, …) | ❌ Tidak ada | `dbo.ptk` hanya `ptk_id, nama, nik, nuptk`; `dbo.ptk_terdaftar` hanya data penugasan. Tidak ada tabel riwayat pendidikan PTK |
 | **Jabatan PTK** | ✅ Tersedia | `dbo.ptk_terdaftar.jabatan_ptk_id` → `ref.jabatan_ptk` (dipakai sebagai pengganti terdekat) |
+| **Semester di tab Sekolah / Rombel / Peserta Didik** | ⚠️ Tidak berguna | Entitas terkait hanya punya satu periode (`20261`) di dump ini (§2.3). Dropdown akan berisi satu nilai; kartu dipin ke semester acuan (§4.1) |
+| **Semester di tab Sarana Prasarana** | ✅ Tersedia | `dbo.sanitasi.semester_id` 26 periode; `dbo.ruang_longitudinal.semester_id` baru 1 periode |
+| **Semester di tab ATS** | ✅ Tersedia | `dbo.ats.semester_id` 10 periode (20202–20252) |
 
 Jika kelak dump memuat tabel riwayat pendidikan/kepegawaian, filter bisa ditambahkan tanpa
 mengubah struktur kartu: cukup menambah satu join dan satu tag.
@@ -176,6 +284,32 @@ mengubah struktur kartu: cukup menambah satu join dan satu tag.
   Tidak ada SMA/SMK karena kewenangan Dinas Pendidikan kabupaten berhenti di SMP.
 - **Status**: Negeri 418, Swasta 186.
 - **Jenis PTK (penugasan induk)**: Guru 3.879; Kepala Sekolah 573; Tenaga Kependidikan 529.
+- **Semester — 26 nilai** (parameter `p-semester`, urutan terbaru lebih dulu; kode mentah tetap
+  ditampilkan di chip filter):
+
+  | Nilai | Label | Nilai | Label |
+  |---|---|---|---|
+  | `20261` | 2026/2027 Gasal | `20182` | 2018/2019 Genap |
+  | `20252` | 2025/2026 Genap | `20181` | 2018/2019 Gasal |
+  | `20251` | 2025/2026 Gasal | `20172` | 2017/2018 Genap |
+  | `20242` | 2024/2025 Genap | `20171` | 2017/2018 Gasal |
+  | `20241` | 2024/2025 Gasal | `20162` | 2016/2017 Genap |
+  | `20232` | 2023/2024 Genap | `20161` | 2016/2017 Gasal |
+  | `20231` | 2023/2024 Gasal | `20152` | 2015/2016 Genap |
+  | `20222` | 2022/2023 Genap | `20151` | 2015/2016 Gasal |
+  | `20221` | 2022/2023 Gasal | `20142` | 2014/2015 Genap |
+  | `20212` | 2021/2022 Genap | `20141` | 2014/2015 Gasal |
+  | `20211` | 2021/2022 Gasal | `20132` | 2013/2014 Genap |
+  | `20202` | 2020/2021 Genap | | |
+  | `20201` | 2020/2021 Gasal | | |
+  | `20192` | 2019/2020 Genap | | |
+  | `20191` | 2019/2020 Gasal | | |
+
+  Kode `20000` pada `dbo.sanitasi` adalah baris rusak (tahun ajaran tidak valid) dan **tidak
+  dimasukkan** ke daftar.
+
+- **Semester (ATS) — 10 nilai** (parameter `p-semester-ats`): `20252`, `20251`, `20241`, `20232`,
+  `20231`, `20222`, `20221`, `20212`, `20211`, `20202` (label & jumlah ATS per periode di §2.3).
 
 ---
 
@@ -185,6 +319,72 @@ Semua kartu memakai blok di bawah ini. **Jangan memberi alias pada `dbo.sekolah`
 `ref.mst_wilayah`, `ref.bentuk_pendidikan`, `ref.jenis_ptk`, `ref.jabatan_ptk`,
 `dbo.ats`, dan `dbo.ptk_terdaftar`** — field filter Metabase membutuhkan nama tabel fisik.
 
+> **Wajib disalin di kartu yang memakai `rombel_dim` atau `pd_dim`:** blok `semester_acuan`
+> di §4.1. Blok tersebut menentukan semester acuan (semester aktif bila sudah ada datanya,
+> kalau tidak semester terbaru yang ada datanya) sehingga angka tidak menjadi 0 saat semester
+> aktif berpindah sebelum sinkronisasi berjalan.
+
+### 4.1 Blok `semester_acuan` (pin semester)
+
+Kartu yang **tidak** punya filter semester dipin ke satu semester agar tidak menjumlah
+lintas periode. Definisi "semester aktif/terbaru":
+
+1. `ref.semester.periode_aktif = 1` **dan** entitas terkait sudah punya baris pada semester itu → dipakai.
+2. Jika belum ada baris (mis. semester baru belum disinkronkan) → `MAX(semester_id)` entitas tersebut.
+
+```sql
+-- Varian ROMBEL (dipakai 14 kartu: Q-EXE-02, Q-EXE-06, Q-SEK-05, Q-SEK-07, Q-SEK-08,
+-- Q-ROM-01…07, Q-PD-04, Q-SAR-05)
+semester_acuan AS (
+  SELECT COALESCE(
+           (SELECT s.semester_id
+              FROM ref.semester s
+             WHERE s.periode_aktif = 1
+               AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb
+                            WHERE rb.semester_id = s.semester_id
+                              AND rb."Soft_delete" = 0
+                              AND rb.jenis_rombel = 1)),
+           (SELECT MAX(rb.semester_id)
+              FROM dbo.rombongan_belajar rb
+             WHERE rb."Soft_delete" = 0
+               AND rb.jenis_rombel = 1)
+         ) AS semester_id
+),
+```
+
+```sql
+-- Varian PESERTA DIDIK LONGITUDINAL (Q-PD-07)
+semester_acuan AS (
+  SELECT COALESCE(
+           (SELECT s.semester_id
+              FROM ref.semester s
+             WHERE s.periode_aktif = 1
+               AND EXISTS (SELECT 1 FROM dbo.peserta_didik_longitudinal pl
+                            WHERE pl.semester_id = s.semester_id
+                              AND pl."Soft_delete" = 0)),
+           (SELECT MAX(pl.semester_id)
+              FROM dbo.peserta_didik_longitudinal pl
+             WHERE pl."Soft_delete" = 0)
+         ) AS semester_id
+),
+```
+
+Kartu Sarana Prasarana yang **bisa** difilter (Q-SAR-02/03/04/07) tidak memakai CTE ini,
+tetapi pola yang sama secara inline: `MAX(semester_id)` dihitung **di dalam** subquery yang
+berisi field filter, sehingga semester terpilih otomatis menggantikan `MAX`:
+
+```sql
+-- Contoh: Q-SAR-02 (ruang). Q-SAR-07 memakai dbo.sanitasi + tag semester_sanitasi.
+  AND dbo.ruang_longitudinal.semester_id = (
+        SELECT MAX(dbo.ruang_longitudinal.semester_id)
+          FROM dbo.ruang_longitudinal
+         WHERE dbo.ruang_longitudinal."Soft_delete" = 0
+         [[AND {{semester_ruang}}]]
+      )
+```
+
+Tanpa filter → `MAX` = semester terbaru yang punya data (20261 = angka ekspektasi).
+Dengan filter → `MAX` atas satu semester saja = semester yang dipilih.
 
 ```sql
 -- Sekolah aktif + dimensi wilayah + filter tab (EXE/SEK/ROM/PD/SAR)
@@ -219,7 +419,7 @@ sekolah_dim AS (
 ```
 
 ```sql
--- Rombel kelas semester aktif
+-- Rombel kelas pada semester acuan (§4.1)
 rombel_dim AS (
   SELECT
     dbo.rombongan_belajar.rombongan_belajar_id,
@@ -235,7 +435,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 )
 ```
 
@@ -325,9 +525,11 @@ ptk_all AS (
 
 ```sql
 -- ATS usia sekolah, dibatasi domisili Kabupaten Karangasem + filter tab ATS
+-- Filter semester opsional: kosong = semua periode (3.032). Lihat §3.1 cara uji.
 ats_dim AS (
   SELECT
     dbo.ats.ats_id,
+    dbo.ats.semester_id,
     TRIM(dbo.ats.status) AS status,
     dbo.ats.usia,
     dbo.ats.kecamatan,
@@ -341,6 +543,7 @@ ats_dim AS (
   [[AND {{kecamatan}}]]
   [[AND {{desa}}]]
   [[AND {{jenjang}}]]
+  [[AND {{semester_ats}}]]
 )
 ```
 
@@ -364,6 +567,9 @@ ats_dim AS (
 6. **Pasang parameter dashboard** (`PUT /api/dashboard/2`) dan `parameter_mappings` per dashcard
    sesuai matriks §3.1. Tetapkan juga **sumber nilai** tiap parameter (§3.2.1) — tanpa itu dropdown
    menarik nilai dari seluruh isi field dan menampilkan wilayah di luar Karangasem.
+   Untuk filter periode: parameter `p-semester` (26 nilai) dan `p-semester-ats` (10 nilai),
+   keduanya `static-list` dengan urutan `[nilai, label]` dan **tanpa nilai default** — keadaan
+   kosong sengaja dibiarkan agar kartu memakai perilaku pin di §3.1/§4.1.
 7. **Hapus dashboard admin** (`DELETE /api/dashboard/4`) setelah tab publik terverifikasi.
 8. **Verifikasi** memakai checklist §7, lalu perbarui `docs/metabase-ids.md`.
 
@@ -396,6 +602,38 @@ ats_dim AS (
 Untuk tab ATS, filter **Jenjang (ATS)** memakai `parameter_id` berbeda tetapi target tag tetap
 `["dimension", ["template-tag", "jenjang"]]`.
 
+Pemetaan filter semester (satu parameter dashboard, dua tag berbeda per tabel):
+
+```json
+[
+  { "parameter_id": "p-semester-ats", "card_id": 82,
+    "target": ["dimension", ["template-tag", "semester_ats"]] },
+  { "parameter_id": "p-semester", "card_id": 95,
+    "target": ["dimension", ["template-tag", "semester_sanitasi"]] },
+  { "parameter_id": "p-semester", "card_id": 90,
+    "target": ["dimension", ["template-tag", "semester_ruang"]] }
+]
+```
+
+**Cara menyimpan mapping di Metabase 0.55.** Tidak ada endpoint per dashcard
+(`PUT /api/dashboard/{id}/cards/{dashcard-id}` → 404). Yang dipakai:
+
+1. `GET /api/dashboard/2` untuk mengambil dokumen penuh.
+2. Ubah `parameter_mappings` pada dashcard yang dituju.
+3. `PUT /api/dashboard/2` dengan body berisi `name`, `description`, `width`, `parameters`,
+   **`tabs`**, dan **`dashcards`** (semua 46, id dipertahankan).
+
+`PUT /api/dashboard/{id}/cards` sudah *deprecated* dan **gagal 500** bila `tabs` tidak ikut dikirim
+(`violates foreign key constraint fk_report_dashboardcard_ref_dashboard_tab_id`), karena endpoint itu
+menghapus lalu menulis ulang tab dan dashcard.
+
+**Re-apply otomatis.** Seluruh langkah di atas (SQL 26 kartu, 2 parameter, 11 mapping) sudah
+dibungkus menjadi `scripts/metabase/apply-semester-filter.py` dengan payload
+`scripts/metabase/semester-filter.sql.json`. Script bersifat idempoten, mencadangkan state lama,
+lalu memverifikasi struktur + menjalankan 46 dashcard. Setelah rebuild instance Metabase, jalankan
+`python3 scripts/metabase/apply-semester-filter.py` agar filter semester ikut terpasang; pakai
+`--verify-only` untuk memeriksa apakah instance sudah sesuai.
+
 ### 5.4 Perkiraan waktu
 
 | Tahap | Durasi |
@@ -408,6 +646,11 @@ Untuk tab ATS, filter **Jenjang (ATS)** memakai `parameter_id` berbeda tetapi ta
 ---
 
 ## 6. Kartu per tab
+
+> Blok SQL di bawah memakai CTE dari §4. Kartu yang memakai `rombel_dim`/`pd_dim` **wajib**
+> menyalin blok `semester_acuan` (§4.1) di awal `WITH`; pada blok SQL di bawah kondisi semester
+> sudah ditulis sebagai `semester_id = (SELECT semester_id FROM semester_acuan)` agar ringkas.
+> Kartu ATS memakai `ats_dim` §4 yang sudah memuat `[[AND {{semester_ats}}]]`.
 
 
 ### Tab 1 — Eksekutif (8 kartu)
@@ -477,7 +720,7 @@ FROM sekolah_dim
 
 - **Tab**: Eksekutif
 - **Tipe visualisasi**: Scalar
-- **Definisi**: Jumlah rombongan belajar bertipe `Kelas` (`jenis_rombel = 1`) pada semester aktif (`ref.semester.periode_aktif = 1`) milik sekolah aktif.
+- **Definisi**: Jumlah rombongan belajar bertipe `Kelas` (`jenis_rombel = 1`) pada semester acuan (§4.1) milik sekolah aktif.
 - **Filter**: Kecamatan, Desa, Jenjang, Status
 - **Ekspektasi (data saat ini)**: 3482
 - **Catatan**: Rombel tipe Teori/Praktek/Pilihan tidak dihitung agar tidak dobel dengan kelas induk.
@@ -526,7 +769,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 )
 SELECT COUNT(*) AS total_rombel
 FROM rombel_dim
@@ -787,7 +1030,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 ),
 anggota AS (
   SELECT dbo.anggota_rombel.rombongan_belajar_id,
@@ -1167,7 +1410,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 )
 SELECT sekolah_dim.jenjang,
        COUNT(DISTINCT sekolah_dim.sekolah_id) AS jumlah_sekolah,
@@ -1254,7 +1497,7 @@ ORDER BY sekolah_dim.kecamatan, sekolah_dim.nama_sekolah
 
 - **Tab**: Sekolah
 - **Tipe visualisasi**: Tabel
-- **Definisi**: Daftar sekolah aktif yang tidak memiliki rombel kelas pada semester aktif. Biasanya menandakan sekolah baru, tidak beroperasi, atau data rombel belum diisi.
+- **Definisi**: Daftar sekolah aktif yang tidak memiliki rombel kelas pada semester acuan (§4.1). Biasanya menandakan sekolah baru, tidak beroperasi, atau data rombel belum diisi.
 - **Filter**: Kecamatan, Desa, Jenjang, Status
 - **Ekspektasi (data saat ini)**: 5 baris — teratas: TK WERDHI KUMARA · 69975165 · TK · Swasta · Kec. Bebandem · Jungutan
 
@@ -1302,7 +1545,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 )
 SELECT sekolah_dim.nama_sekolah,
        sekolah_dim.npsn,
@@ -1371,7 +1614,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 ),
 pd_dim AS (
   SELECT
@@ -1426,7 +1669,7 @@ ORDER BY jumlah_pd DESC
 
 ### Tab 3 — Rombel (7 kartu)
 
-Agregasi dan insight rombel aktif bertipe Kelas pada semester aktif, termasuk kepatuhan terhadap standar ukuran rombel.
+Agregasi dan insight rombel aktif bertipe Kelas pada semester acuan (§4.1), termasuk kepatuhan terhadap standar ukuran rombel.
 
 **Tata letak yang disarankan**: KPI 6×4 (baris 0), grafik 12×8 (baris 4), grafik 24×8 (baris 12), tabel 24×10 (baris 20).
 
@@ -1447,7 +1690,7 @@ Agregasi dan insight rombel aktif bertipe Kelas pada semester aktif, termasuk ke
 
 - **Tab**: Rombel
 - **Tipe visualisasi**: Scalar
-- **Definisi**: Jumlah rombel kelas pada semester aktif di sekolah aktif (KPI pembuka tab Rombel).
+- **Definisi**: Jumlah rombel kelas pada semester acuan (§4.1) di sekolah aktif (KPI pembuka tab Rombel).
 - **Filter**: Kecamatan, Desa, Jenjang, Status
 - **Ekspektasi (data saat ini)**: 3482
 
@@ -1495,7 +1738,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 )
 SELECT COUNT(*) AS total_rombel
 FROM rombel_dim
@@ -1554,7 +1797,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 )
 SELECT jenjang, COUNT(*) AS jumlah_rombel
 FROM rombel_dim
@@ -1615,7 +1858,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 )
 SELECT kecamatan, COUNT(*) AS jumlah_rombel
 FROM rombel_dim
@@ -1677,7 +1920,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 ),
 anggota AS (
   SELECT dbo.anggota_rombel.rombongan_belajar_id,
@@ -1750,7 +1993,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 ),
 anggota AS (
   SELECT dbo.anggota_rombel.rombongan_belajar_id,
@@ -1842,7 +2085,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 ),
 anggota AS (
   SELECT dbo.anggota_rombel.rombongan_belajar_id,
@@ -1941,7 +2184,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 )
 SELECT rombel_dim.nama_sekolah,
        rombel_dim.npsn,
@@ -2222,7 +2465,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 ),
 pd_dim AS (
   SELECT
@@ -2378,7 +2621,7 @@ ORDER BY 2 DESC
 
 - **Tab**: Peserta Didik
 - **Tipe visualisasi**: Tabel
-- **Definisi**: Untuk setiap jenjang: rata-rata jarak rumah–sekolah (km) dan waktu tempuh (menit) dari `dbo.peserta_didik_longitudinal` semester aktif.
+- **Definisi**: Untuk setiap jenjang: rata-rata jarak rumah–sekolah (km) dan waktu tempuh (menit) dari `dbo.peserta_didik_longitudinal` pada semester acuan (§4.1).
 - **Filter**: Kecamatan, Desa, Jenjang, Status
 - **Ekspektasi (data saat ini)**: 7 baris — teratas: SD · 39914 · 0.47 · 9.2
 - **Catatan**: Hanya murid yang punya baris longitudinal yang dihitung.
@@ -2442,7 +2685,7 @@ SELECT pd_unik.jenjang,
 FROM dbo.peserta_didik_longitudinal
 JOIN pd_unik ON pd_unik.peserta_didik_id = dbo.peserta_didik_longitudinal.peserta_didik_id
 WHERE dbo.peserta_didik_longitudinal."Soft_delete" = 0
-  AND dbo.peserta_didik_longitudinal.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+  AND dbo.peserta_didik_longitudinal.semester_id = (SELECT semester_id FROM semester_acuan)
 GROUP BY pd_unik.jenjang
 ORDER BY jumlah_pd_terdata DESC
 ```
@@ -2539,13 +2782,17 @@ Agregasi anak tidak sekolah usia 7–18 tahun yang berdomisili di Kabupaten Kara
 - **Tab**: ATS
 - **Tipe visualisasi**: Scalar
 - **Definisi**: Jumlah anak tidak sekolah (ATS) dengan `soft_delete = 0` dan usia 7–18 tahun, yaitu rentang usia yang masih dapat diintervensi melalui jalur pendidikan formal.
-- **Filter**: Kecamatan, Desa, Jenjang ATS
-- **Ekspektasi (data saat ini)**: 3032
+- **Filter**: Kecamatan, Desa, Jenjang ATS, Semester (ATS)
+- **Ekspektasi (data saat ini)**: 3032 (tanpa filter = seluruh 10 periode)
+- **Ekspektasi per periode**: 20232 → **1827**, 20212 → 213, 20222 → 601, 20252 → 1 (lihat §2.3)
+- **Catatan**: `dbo.ats.semester_id` adalah **periode pencatatan**, bukan tahun lahir. Angka 3.032
+  adalah akumulasi 10 periode; gunakan filter Semester (ATS) bila ingin angka satu periode.
 
 ```sql
 WITH ats_dim AS (
   SELECT
     dbo.ats.ats_id,
+    dbo.ats.semester_id,
     TRIM(dbo.ats.status) AS status,
     dbo.ats.usia,
     dbo.ats.kecamatan,
@@ -2559,6 +2806,7 @@ WITH ats_dim AS (
   [[AND {{kecamatan}}]]
   [[AND {{desa}}]]
   [[AND {{jenjang}}]]
+  [[AND {{semester_ats}}]]
 )
 SELECT COUNT(*) AS total_ats
 FROM ats_dim
@@ -2570,13 +2818,14 @@ FROM ats_dim
 - **Tab**: ATS
 - **Tipe visualisasi**: Bar / Donut
 - **Definisi**: Sebaran ATS menurut status: BPB (belum pernah bersekolah), LTM (lulus tidak melanjutkan), dan DO (drop out). Nilai dinormalisasi dengan `TRIM()` karena basis data menyimpan dua varian ('DO' dan 'DO ').
-- **Filter**: Kecamatan, Desa, Jenjang ATS
+- **Filter**: Kecamatan, Desa, Jenjang ATS, Semester (ATS)
 - **Ekspektasi (data saat ini)**: 3 baris — teratas: BPB · 1475
 
 ```sql
 WITH ats_dim AS (
   SELECT
     dbo.ats.ats_id,
+    dbo.ats.semester_id,
     TRIM(dbo.ats.status) AS status,
     dbo.ats.usia,
     dbo.ats.kecamatan,
@@ -2590,6 +2839,7 @@ WITH ats_dim AS (
   [[AND {{kecamatan}}]]
   [[AND {{desa}}]]
   [[AND {{jenjang}}]]
+  [[AND {{semester_ats}}]]
 )
 SELECT status, COUNT(*) AS jumlah_ats
 FROM ats_dim
@@ -2603,13 +2853,14 @@ ORDER BY jumlah_ats DESC
 - **Tab**: ATS
 - **Tipe visualisasi**: Bar (horizontal)
 - **Definisi**: Jumlah ATS usia 7–18 tahun pada setiap kecamatan.
-- **Filter**: Kecamatan, Desa, Jenjang ATS
+- **Filter**: Kecamatan, Desa, Jenjang ATS, Semester (ATS)
 - **Ekspektasi (data saat ini)**: 8 baris — teratas: Kec. Kubu · 1217
 
 ```sql
 WITH ats_dim AS (
   SELECT
     dbo.ats.ats_id,
+    dbo.ats.semester_id,
     TRIM(dbo.ats.status) AS status,
     dbo.ats.usia,
     dbo.ats.kecamatan,
@@ -2623,6 +2874,7 @@ WITH ats_dim AS (
   [[AND {{kecamatan}}]]
   [[AND {{desa}}]]
   [[AND {{jenjang}}]]
+  [[AND {{semester_ats}}]]
 )
 SELECT kecamatan, COUNT(*) AS jumlah_ats
 FROM ats_dim
@@ -2636,13 +2888,14 @@ ORDER BY jumlah_ats DESC
 - **Tab**: ATS
 - **Tipe visualisasi**: Bar
 - **Definisi**: Jumlah ATS menurut jenjang pendidikan terakhir yang tercatat (SD, SMP, SMA, Paket A/B/C, atau tidak terdata).
-- **Filter**: Kecamatan, Desa, Jenjang ATS
+- **Filter**: Kecamatan, Desa, Jenjang ATS, Semester (ATS)
 - **Ekspektasi (data saat ini)**: 7 baris — teratas: Tidak terdata · 1218
 
 ```sql
 WITH ats_dim AS (
   SELECT
     dbo.ats.ats_id,
+    dbo.ats.semester_id,
     TRIM(dbo.ats.status) AS status,
     dbo.ats.usia,
     dbo.ats.kecamatan,
@@ -2656,6 +2909,7 @@ WITH ats_dim AS (
   [[AND {{kecamatan}}]]
   [[AND {{desa}}]]
   [[AND {{jenjang}}]]
+  [[AND {{semester_ats}}]]
 )
 SELECT jenjang, COUNT(*) AS jumlah_ats
 FROM ats_dim
@@ -2669,13 +2923,14 @@ ORDER BY jumlah_ats DESC
 - **Tab**: ATS
 - **Tipe visualisasi**: Bar
 - **Definisi**: Jumlah ATS dikelompokkan menurut rentang usia sekolah: 7–12 (SD), 13–15 (SMP), dan 16–18 (SMA).
-- **Filter**: Kecamatan, Desa, Jenjang ATS
+- **Filter**: Kecamatan, Desa, Jenjang ATS, Semester (ATS)
 - **Ekspektasi (data saat ini)**: 3 baris — teratas: 13-15 (SMP) · 759
 
 ```sql
 WITH ats_dim AS (
   SELECT
     dbo.ats.ats_id,
+    dbo.ats.semester_id,
     TRIM(dbo.ats.status) AS status,
     dbo.ats.usia,
     dbo.ats.kecamatan,
@@ -2689,6 +2944,7 @@ WITH ats_dim AS (
   [[AND {{kecamatan}}]]
   [[AND {{desa}}]]
   [[AND {{jenjang}}]]
+  [[AND {{semester_ats}}]]
 )
 SELECT CASE
          WHEN usia BETWEEN 7 AND 12 THEN '7-12 (SD)'
@@ -2707,7 +2963,7 @@ ORDER BY 1
 - **Tab**: ATS
 - **Tipe visualisasi**: Bar
 - **Definisi**: Jumlah ATS usia 7–18 tahun menurut tahun pendataan (`tahun`). Menunjukkan tahun basis data ATS paling lengkap.
-- **Filter**: Kecamatan, Desa, Jenjang ATS
+- **Filter**: Kecamatan, Desa, Jenjang ATS, Semester (ATS)
 - **Ekspektasi (data saat ini)**: 3 baris — teratas: 2023 · 2490
 - **Catatan**: Sebagian besar data berasal dari pendataan 2023; tahun lain belum tentu lengkap.
 
@@ -2715,6 +2971,7 @@ ORDER BY 1
 WITH ats_dim AS (
   SELECT
     dbo.ats.ats_id,
+    dbo.ats.semester_id,
     TRIM(dbo.ats.status) AS status,
     dbo.ats.usia,
     dbo.ats.kecamatan,
@@ -2728,6 +2985,7 @@ WITH ats_dim AS (
   [[AND {{kecamatan}}]]
   [[AND {{desa}}]]
   [[AND {{jenjang}}]]
+  [[AND {{semester_ats}}]]
 )
 SELECT tahun, COUNT(*) AS jumlah_ats
 FROM ats_dim
@@ -2741,7 +2999,7 @@ ORDER BY tahun
 - **Tab**: ATS
 - **Tipe visualisasi**: Tabel
 - **Definisi**: Peringkat 15 desa/kelurahan dengan jumlah ATS usia 7–18 tahun terbanyak.
-- **Filter**: Kecamatan, Desa, Jenjang ATS
+- **Filter**: Kecamatan, Desa, Jenjang ATS, Semester (ATS)
 - **Ekspektasi (data saat ini)**: 15 baris — teratas: Tianyar Tengah · Kec. Kubu · 321
 - **Catatan**: Agregat per desa, bukan data per anak. Nama, NIK, dan NISN ATS tidak pernah ditampilkan.
 
@@ -2749,6 +3007,7 @@ ORDER BY tahun
 WITH ats_dim AS (
   SELECT
     dbo.ats.ats_id,
+    dbo.ats.semester_id,
     TRIM(dbo.ats.status) AS status,
     dbo.ats.usia,
     dbo.ats.kecamatan,
@@ -2762,6 +3021,7 @@ WITH ats_dim AS (
   [[AND {{kecamatan}}]]
   [[AND {{desa}}]]
   [[AND {{jenjang}}]]
+  [[AND {{semester_ats}}]]
 )
 SELECT desa, kecamatan, COUNT(*) AS jumlah_ats
 FROM ats_dim
@@ -2861,10 +3121,13 @@ ORDER BY jumlah DESC
 
 - **Tab**: Sarana Prasarana
 - **Tipe visualisasi**: Bar
-- **Definisi**: Jumlah ruang menurut klasifikasi kerusakan pada semester aktif: tidak ada kerusakan, rusak ringan, rusak sedang, dan rusak berat.
-- **Filter**: Kecamatan, Desa, Jenjang, Status
+- **Definisi**: Jumlah ruang menurut klasifikasi kerusakan pada semester yang dipilih (kosong = semester terbaru):
+  tidak ada kerusakan, rusak ringan, rusak sedang, dan rusak berat.
+- **Filter**: Kecamatan, Desa, Jenjang, Status, Semester
 - **Ekspektasi (data saat ini)**: 4 baris — teratas: Rusak Sedang · 654
-- **Catatan**: Hanya ruang yang memiliki baris kondisi pada semester aktif yang dihitung (cakupan terbatas).
+- **Catatan**: Hanya ruang yang memiliki baris kondisi pada semester yang dipilih yang dihitung.
+  Riwayat kondisi ruang baru tersedia untuk **2026/2027 Gasal**; memilih semester lain akan
+  menampilkan kartu kosong ("Tidak ada hasil") — ini benar, bukan error.
 
 ```sql
 WITH sekolah_dim AS (
@@ -2903,7 +3166,12 @@ JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id
 LEFT JOIN ref.jenis_kerusakan
   ON ref.jenis_kerusakan.kerusakan_id = dbo.ruang_longitudinal.kerusakan_id
 WHERE dbo.ruang."Soft_delete" = 0
-  AND dbo.ruang_longitudinal.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+  AND dbo.ruang_longitudinal.semester_id = (
+        SELECT MAX(dbo.ruang_longitudinal.semester_id)
+          FROM dbo.ruang_longitudinal
+         WHERE dbo.ruang_longitudinal."Soft_delete" = 0
+         [[AND {{semester_ruang}}]]
+      )
 GROUP BY 1
 ORDER BY 2 DESC
 ```
@@ -2913,10 +3181,13 @@ ORDER BY 2 DESC
 
 - **Tab**: Sarana Prasarana
 - **Tipe visualisasi**: Scalar (persen)
-- **Definisi**: Rata-rata nilai `nilai_kerusakan` (skala 0–100) seluruh ruang yang kondisi tercatat pada semester aktif. Semakin tinggi, semakin parah kerusakan rata-rata.
-- **Filter**: Kecamatan, Desa, Jenjang, Status
+- **Definisi**: Rata-rata nilai `nilai_kerusakan` (skala 0–100) seluruh ruang yang kondisi tercatat pada semester yang dipilih (kosong = semester terbaru). Semakin tinggi, semakin parah kerusakan rata-rata.
+- **Filter**: Kecamatan, Desa, Jenjang, Status, Semester
 - **Ekspektasi (data saat ini)**: 26.85
 - **Catatan**: Bukan nilai rupiah; kolom aslinya berupa skor kerusakan 0–100.
+  Filter kosong = semester terbaru (2026/2027 Gasal). Semester lain tanpa data → kartu kosong.
+  Klausa `HAVING COUNT(...) > 0` wajib ada: tanpa itu `AVG` mengembalikan **satu baris NULL**
+  dan dashboard publik menampilkannya sebagai teks "batal", bukan keadaan kosong yang rapi.
 
 ```sql
 WITH sekolah_dim AS (
@@ -2952,7 +3223,13 @@ FROM dbo.ruang_longitudinal
 JOIN dbo.ruang ON dbo.ruang.id_ruang = dbo.ruang_longitudinal.id_ruang
 JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id
 WHERE dbo.ruang."Soft_delete" = 0
-  AND dbo.ruang_longitudinal.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+  AND dbo.ruang_longitudinal.semester_id = (
+        SELECT MAX(dbo.ruang_longitudinal.semester_id)
+          FROM dbo.ruang_longitudinal
+         WHERE dbo.ruang_longitudinal."Soft_delete" = 0
+         [[AND {{semester_ruang}}]]
+      )
+HAVING COUNT(dbo.ruang_longitudinal.nilai_kerusakan) > 0
 ```
 
 
@@ -2960,10 +3237,11 @@ WHERE dbo.ruang."Soft_delete" = 0
 
 - **Tab**: Sarana Prasarana
 - **Tipe visualisasi**: Bar (horizontal)
-- **Definisi**: Jumlah ruang dengan klasifikasi Rusak Berat pada setiap kecamatan, pada semester aktif.
-- **Filter**: Kecamatan, Desa, Jenjang, Status
+- **Definisi**: Jumlah ruang dengan klasifikasi Rusak Berat pada setiap kecamatan, pada semester yang dipilih (kosong = semester terbaru).
+- **Filter**: Kecamatan, Desa, Jenjang, Status, Semester
 - **Ekspektasi (data saat ini)**: 8 baris — teratas: Kec. Abang · 70
-- **Catatan**: Kartu prioritas rehabilitasi.
+- **Catatan**: Kartu prioritas rehabilitasi. Filter kosong = semester terbaru; riwayat ruang baru
+  tersedia untuk 2026/2027 Gasal.
 
 ```sql
 WITH sekolah_dim AS (
@@ -3001,7 +3279,12 @@ JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id
 JOIN ref.jenis_kerusakan
   ON ref.jenis_kerusakan.kerusakan_id = dbo.ruang_longitudinal.kerusakan_id
 WHERE dbo.ruang."Soft_delete" = 0
-  AND dbo.ruang_longitudinal.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+  AND dbo.ruang_longitudinal.semester_id = (
+        SELECT MAX(dbo.ruang_longitudinal.semester_id)
+          FROM dbo.ruang_longitudinal
+         WHERE dbo.ruang_longitudinal."Soft_delete" = 0
+         [[AND {{semester_ruang}}]]
+      )
   AND ref.jenis_kerusakan.klasifikasi = 'Rusak Berat'
 GROUP BY 1
 ORDER BY 2 DESC
@@ -3015,6 +3298,8 @@ ORDER BY 2 DESC
 - **Definisi**: Untuk setiap jenjang: jumlah ruang teori/kelas dibandingkan jumlah rombel kelas aktif, beserta rasionya. Rasio < 1 berarti kekurangan ruang kelas.
 - **Filter**: Kecamatan, Desa, Jenjang, Status
 - **Ekspektasi (data saat ini)**: 7 baris — teratas: TPA · 7 · 8 · 0.88
+- **Catatan**: Kartu ini **tidak** memakai filter Semester: sisi rombel dipin ke semester acuan
+  (§4.1), sedangkan `dbo.ruang` tidak memiliki dimensi periode sama sekali.
 
 ```sql
 WITH sekolah_dim AS (
@@ -3060,7 +3345,7 @@ rombel_dim AS (
   JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
   WHERE dbo.rombongan_belajar."Soft_delete" = 0
     AND dbo.rombongan_belajar.jenis_rombel = 1
-    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+    AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
 ),
 per_sekolah AS (
   SELECT sekolah_dim.sekolah_id,
@@ -3140,9 +3425,13 @@ LEFT JOIN perpus ON perpus.sekolah_id = sekolah_dim.sekolah_id
 
 - **Tab**: Sarana Prasarana
 - **Tipe visualisasi**: Bar / Donut
-- **Definisi**: Sebaran sekolah aktif menurut sumber air yang digunakan, dari `dbo.sanitasi` semester aktif.
-- **Filter**: Kecamatan, Desa, Jenjang, Status
-- **Ekspektasi (data saat ini)**: 9 baris — teratas: Ledeng/PAM · 438
+- **Definisi**: Sebaran sekolah aktif menurut sumber air yang digunakan, dari `dbo.sanitasi` pada
+  semester yang dipilih (kosong = semester terbaru yang ada datanya).
+- **Filter**: Kecamatan, Desa, Jenjang, Status, Semester
+- **Ekspektasi (data saat ini)**: 9 baris — teratas: Ledeng/PAM · 438 (semester 20261)
+- **Ekspektasi per periode**: 20252 → 10 baris, Ledeng/PAM · 436; 20132 → 3 baris, Ledeng/PAM · 5.
+- **Catatan**: Ini satu-satunya kartu yang benar-benar bisa dibandingkan antar semester karena
+  `dbo.sanitasi` menyimpan 26 periode (2013/2014 Genap – 2026/2027 Gasal).
 
 ```sql
 WITH sekolah_dim AS (
@@ -3179,7 +3468,12 @@ FROM dbo.sanitasi
 JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.sanitasi.sekolah_id
 LEFT JOIN ref.sumber_air ON ref.sumber_air.sumber_air_id = dbo.sanitasi.sumber_air_id
 WHERE dbo.sanitasi."Soft_delete" = 0
-  AND dbo.sanitasi.semester_id = (SELECT semester_id FROM ref.semester WHERE periode_aktif = 1)
+  AND dbo.sanitasi.semester_id = (
+        SELECT MAX(dbo.sanitasi.semester_id)
+          FROM dbo.sanitasi
+         WHERE dbo.sanitasi."Soft_delete" = 0
+         [[AND {{semester_sanitasi}}]]
+      )
 GROUP BY 1
 ORDER BY 2 DESC
 ```
@@ -3247,6 +3541,17 @@ LIMIT 10
 - [ ] Filter Jenjang hanya memengaruhi tab yang memetakannya; tab ATS memakai filter terpisah.
 - [ ] Filter Status Negeri/Swasta mengubah angka di tab EXE, SEK, ROM, PD, SAR.
 - [ ] Filter Jenis PTK & Jabatan PTK hanya mengubah **Q-EXE-04**.
+- [ ] **Filter Semester** muncul di tab Sarana Prasarana saja (tidak di 4 tab lain) dan berisi 26 label
+  "YYYY/YYYY Gasal|Genap". Pilih `2025/2026 Genap` → Q-SAR-07 Ledeng/PAM **436**, Q-SAR-02 kosong.
+- [ ] **Filter Semester (ATS)** muncul di tab ATS saja, berisi 10 label. Pilih `2023/2024 Genap` →
+  kartu utama berubah **3.032 → 1.827**; dikosongkan → kembali 3.032.
+- [ ] Kedua filter semester **tidak punya nilai default** (keadaan kosong = perilaku pin §3.1).
+- [ ] Memilih lalu **menghapus** kedua filter tersebut tidak memunculkan pesan error pada kartu
+  (regresi yang pernah terjadi saat filter memakai variabel teks: *"Parameter yang diperlukan hilang"*).
+- [ ] Kartu yang tidak berperiode (Q-SAR-01/06/08) tetap sama saat filter semester diubah.
+- [ ] Kartu pin (rombel/PD) tetap **3.482 / 68.952** setelah `semester_acuan` diterapkan.
+- [ ] `python3 scripts/metabase/apply-semester-filter.py --verify-only` exit 0 (script re-apply
+  melaporkan filter semester + 46 dashcard sesuai).
 - [ ] Kartu tabel menampilkan **nama sekolah**, bukan nama murid/PTK/ATS.
 - [ ] Embed publik (`/dashboard`) merender semua tab, footer "Didukung oleh Metabase" tidak tertutup.
 - [ ] Uji viewport 1470×900, 1470×662, dan 500×844: tidak ada scroll ganda di wrapper.
@@ -3281,6 +3586,10 @@ LIMIT 10
 | `status_sekolah` berupa kode 1/2 | Dropdown tidak informatif | Dipasang display values Negeri/Swasta |
 | 17 rombel dengan wali kelas sudah tidak aktif | Risiko data | Ditampilkan sebagai kartu kualitas data |
 | 1 rombel kelas tanpa anggota sama sekali | Rata-rata berbasis anggota menghitung 3.481 rombel | Selisih kecil; rombel tetap muncul di Q-ROM-02/03 |
+| `dbo.ats.semester_id` hanya 10 periode dan 90,2% barisnya berasal dari 20231–20232 | Angka 3.032 bukan angka satu semester | Tab ATS diberi filter Semester (ATS); komposisi per periode di §2.3 |
+| `dbo.sanitasi.semester_id` memuat kode `20000` (tahun ajaran tidak valid) | Bisa jadi nilai "terbaru" palsu bila format kode berubah | Dikeluarkan dari daftar 26 nilai; `MAX(semester_id)` tetap 20261 |
+| `dbo.ruang_longitudinal` dan `dbo.peserta_didik_longitudinal` baru berisi **1 periode** (20261) | Riwayat ruang/PD belum bisa dibandingkan | Kartu ruang memakai filter Semester tetapi akan kosong pada periode lain |
+| `ref.semester` hanya berisi 2 baris (20252, 20261) | `periode_aktif = 1` menunjuk 20261; semester berikutnya bisa menunjuk periode tanpa data | Pin memakai `COALESCE(periode_aktif yang ada datanya, MAX(semester_id) entitas)` (§4.1) |
 
 ---
 
@@ -3301,3 +3610,16 @@ LIMIT 10
 | Cakupan ATS | Domisili Kabupaten Karangasem, termasuk yang bersekolah di luar |
 | Ambang rombel | Per jenjang (15/28/32) + Paket A/B/C (20/25/30) |
 | Kartu distribusi rombel | Diganti "Kepatuhan Ukuran Rombel terhadap Standar per Jenjang" |
+
+### 9.2 Keputusan filter semester (22 Oktober 2026)
+
+| Isu | Keputusan | Alasan |
+|---|---|---|
+| Cakupan filter | Dua parameter terpisah: **Semester** (SAR) & **Semester (ATS)**; 4 tab lain tanpa filter | Hanya 2 tab yang punya >1 periode (§2.3) |
+| Default tab ATS | **Kosong = semua periode** (3.032) | Periode terbaru (20252) hanya berisi 1 ATS; default ke situ membuat KPI tampak rusak |
+| Default tab Sarana | **Kosong = semester terbaru yang ada data** (20261) | Angka yang dilihat publik tetap 654/26,85/438 seperti sebelumnya |
+| Pin kartu tanpa filter | `semester_acuan`: periode aktif bila ada datanya, jika tidak `MAX(semester_id)` entitas | Tahan saat semester baru dibuka sebelum sinkronisasi |
+| Jenis filter | Native field filter di dalam subquery `MAX()` / blok `[[…]]`, bukan variabel teks | Variabel teks gagal saat parameter dikirim `null` (kartu error) |
+| Sumber nilai | Static list `[nilai, label]`, 26 & 10 nilai, tanpa default | Label harus terbaca ("2026/2027 Gasal"), bukan kode `20261` |
+| Trend antar semester | Tidak dibuat (jumlah kartu tetap 46) | Permintaan pengguna: cukup filter |
+| Tampilan filter lintas tab | Dibiarkan seperti pola Jenjang vs Jenjang (ATS) | Metabase hanya menampilkan parameter yang terpetakan di tab aktif |

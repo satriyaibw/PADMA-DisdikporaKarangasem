@@ -138,6 +138,22 @@ vendor/bin/sail artisan schedule:list               # Verify 4 scheduled jobs
 | `deploy/backup/README.md` | Backup/restore drill usage |
 | `scripts/tunnel/tunnel-up.sh` | Quick Tunnel startup (updates .env + Metabase site-url via API) |
 | `scripts/tunnel/tunnel-down.sh` | Quick Tunnel shutdown |
+| `metabase_questions.md` | 46 kartu & 6 tab dashboard publik (SQL, filter, layout) |
+
+## Metabase Dashboard Publik — Key Facts
+
+- **Dashboard ID**: `2` (public UUID: `a5a63c98-29d1-4f69-b430-062b23f58888`)
+- **Database**: `backbone_client` (id `2`, role `analis`, read-only)
+- **Tabs**: 6 (Eksekutif, Sekolah, Rombel, Peserta Didik, ATS, Sarana Prasarana)
+- **Cards**: 46 native SQL (8/8/7/8/7/8 per tab)
+- **Filter semester**: per-tab, not global
+  - **ATS tab**: `p-semester-ats` → `semester_ats` (field 1411), 10 periods, default = ALL (3,032)
+  - **Sarana Prasarana**: `p-semester` → `semester_ruang` (1699) + `semester_sanitasi` (1760), 26 periods, default = latest with data (20261)
+  - Other 4 tabs: no filter; cards pinned to `semester_acuan` CTE (active semester if data exists, else MAX)
+- **Static list values** must be `[value, label]` order (e.g., `["20261", "2026/2027 Gasal"]`) — reversed order breaks filtering AND shows raw codes
+- **Parameter mapping**: `PUT /api/dashboard/2` with full `tabs` + `dashcards` (per-dashcard endpoint deprecated, requires tabs)
+- **Layout check**: `python3 scripts/metabase/check-layout.py` (exit 0 = no overlapping cells)
+- **Re-apply filter semester ke instance baru/rebuild**: `python3 scripts/metabase/apply-semester-filter.py` (payload deterministik: `scripts/metabase/semester-filter.sql.json`; `--verify-only` untuk memeriksa drift, `--dry-run` untuk pratinjau, backup otomatis ke `scripts/metabase/.backup/`)
 
 ## Project-Specific Conventions
 
@@ -154,3 +170,6 @@ vendor/bin/sail artisan schedule:list               # Verify 4 scheduled jobs
 - **Metabase dashcards created via API must use cumulative grid rows**: `row = previous row + previous size_y` (e.g. 0 and 6). Sequential indices (0, 1, 2) shrink the computed grid height, so cards overflow their container and paint over the "Didukung oleh Metabase" footer — the footer sits in normal flow, not fixed
 - **Declared grid cells must not overlap** (same `col` span + `row` range). Metabase reflows colliding cards downward at render time, but the dashboard height (footer position) still uses the declared `row`s, so content grows taller than its container and the last card paints over the footer. Verify per tab: `max(row + size_y)` of the declared layout must equal the rendered content height. Real case: Sarpras had SAR-07 at `row 12 col 12` over SAR-04 (`row 8–16 col 12`) → footer covered by 162 px; fixed with SAR-05 `12×12`, SAR-07 `row 16`, SAR-08 `row 24`
 - Dashboard wrappers (`public.dashboard`, `vip.dashboard`) use a flex-column single-viewport layout (`body` flex, `header` `flex: 0 0 auto`, `iframe` `flex: 1 1 auto; min-height: 0`). Do not reintroduce `height: calc(100vh - Xrem)` — header height varies on small screens and causes double scrollbars
+- **Metabase field filter params sent as `null` when cleared** — text-variable filters fail with "Parameter yang diperlukan hilang". Use native dimension field filters (project convention) with optional `[[AND {{tag}}]]` blocks instead
+- **Metabase static list values**: write as `[[value, label]]` — element 1 = sent to query, element 2 = displayed. Reversed order breaks filtering silently
+- **Metabase `PUT /api/dashboard/{id}/cards` is deprecated** and fails 500 without `tabs` in payload. Use `PUT /api/dashboard/{id}` with `name`, `parameters`, `tabs`, `dashcards` (full document)
