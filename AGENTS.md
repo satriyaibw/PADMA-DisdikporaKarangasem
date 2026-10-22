@@ -14,6 +14,8 @@
 ├── docs/                     # runbook, security-checklist, UAT, landing-snapshot, etc.
 ├── scripts/
 │   ├── landing-snapshot.sh   # landing page snapshot pipeline
+│   ├── metabase/
+│   │   └── iac/              # CARD AS CODE dashboard publik (YAML + export/apply/verify)
 │   └── tunnel/               # Cloudflare Quick Tunnel management
 │       ├── tunnel-up.sh      # starts tunnels, updates .env + Metabase site-url
 │       └── tunnel-down.sh    # stops tunnels, clears state
@@ -28,6 +30,7 @@
 |------|--------|
 | **Laravel never queries `backbone_client`** | Separation from Pusdatin source data |
 | **Only Metabase touches `backbone_client`** with read-only `analis` role | Prevents accidental writes to education data |
+| **Public dashboard is defined in `scripts/metabase/iac/`**, not in the live instance | Reproducible on any machine; UI edits are overwritten by `apply.py` |
 | **`app_db` is separate from `backbone_client`** | `app_db` holds users, sessions, audit only |
 | **`METABASE_EMBEDDING_SECRET` must equal `MB_EMBEDDING_SECRET_KEY`** | JWT HS256 signing for signed embeds; mismatch breaks all embeds |
 | **Never touch `MB_ENCRYPTION_SECRET_KEY`** | Encrypts DB credentials in Metabase metadata; changing it breaks all connections |
@@ -87,6 +90,11 @@ vendor/bin/sail artisan schedule:list               # Verify 4 scheduled jobs
 | Start Cloudflare tunnels | `./scripts/tunnel/tunnel-up.sh` |
 | Stop Cloudflare tunnels | `./scripts/tunnel/tunnel-down.sh` |
 | Check dashboard grid layout | `python3 scripts/metabase/check-layout.py` (exit 0 = tidak ada sel bertumpuk) |
+| Lint dashboard spec (offline) | `python3 scripts/metabase/iac/tools/validate.py` |
+| Preview dashboard apply | `python3 scripts/metabase/iac/tools/apply.py --dry-run` |
+| Rebuild public dashboard | `python3 scripts/metabase/iac/tools/apply.py` |
+| Verify dashboard vs spec | `python3 scripts/metabase/iac/tools/verify.py` |
+| Re-export spec from instance | `python3 scripts/metabase/iac/tools/export.py` (or `--check` for drift) |
 
 ### Scheduled Jobs (WITA / UTC+8)
 
@@ -139,6 +147,7 @@ vendor/bin/sail artisan schedule:list               # Verify 4 scheduled jobs
 | `scripts/tunnel/tunnel-up.sh` | Quick Tunnel startup (updates .env + Metabase site-url via API) |
 | `scripts/tunnel/tunnel-down.sh` | Quick Tunnel shutdown |
 | `metabase_questions.md` | 46 kartu & 6 tab dashboard publik (SQL, filter, layout) |
+| `scripts/metabase/iac/README.md` | Card as code: prasyarat, 4 perintah, aturan, troubleshooting |
 
 ## Metabase Dashboard Publik — Key Facts
 
@@ -153,7 +162,11 @@ vendor/bin/sail artisan schedule:list               # Verify 4 scheduled jobs
 - **Static list values** must be `[value, label]` order (e.g., `["20261", "2026/2027 Gasal"]`) — reversed order breaks filtering AND shows raw codes
 - **Parameter mapping**: `PUT /api/dashboard/2` with full `tabs` + `dashcards` (per-dashcard endpoint deprecated, requires tabs)
 - **Layout check**: `python3 scripts/metabase/check-layout.py` (exit 0 = no overlapping cells)
-- **Re-apply filter semester ke instance baru/rebuild**: `python3 scripts/metabase/apply-semester-filter.py` (payload deterministik: `scripts/metabase/semester-filter.sql.json`; `--verify-only` untuk memeriksa drift, `--dry-run` untuk pratinjau, backup otomatis ke `scripts/metabase/.backup/`)
+- **Source of truth**: `scripts/metabase/iac/` — `dashboard.public.yaml` + `cards/*.yaml`. No numeric Metabase ids in YAML: fields are `{schema, table, column}`, cards/collections/dashboard by name, resolved at apply time (`tools/resolver.py`). See `scripts/metabase/iac/README.md`.
+- **Rebuild on another machine**: `validate.py` → `apply.py --dry-run` → `apply.py` → `verify.py` (idempotent; second run reports `Total perubahan: 0`; prints `METABASE_PUBLIC_DASHBOARD_ID/UUID` for `.env`)
+- **Two card names are intentionally duplicated** (`Total Rombel Aktif (Kelas)` = Q-EXE-02/Q-ROM-01, `Total Peserta Didik Aktif` = Q-EXE-03/Q-PD-01). Card identity = dashboard slot `(tab, name)`, then unique name, then identical SQL — never name alone
+- **`apply.py` refuses to run when grid cells overlap** (`--force` override exists but is never appropriate in production)
+- **Legacy quick-fix**: `python3 scripts/metabase/apply-semester-filter.py` still works for semester-filter-only repairs (payload: `semester-filter.sql.json`, backup to `scripts/metabase/.backup/`), but it does not create cards/tabs/dashboard — use the IaC tools for rebuilds
 
 ## Project-Specific Conventions
 
