@@ -1,0 +1,640 @@
+# GENERATED oleh tools/export.py -- jangan diedit tangan tanpa menjalankan
+# `python3 tools/validate.py` sesudahnya.
+#
+# Sumber kebenaran dashboard publik Disdikpora Karangasem. Semua rujukan
+# memakai NAMA (database, collection, kartu) dan {schema, table, column},
+# bukan id numerik Metabase, supaya bisa diterapkan di instance lain.
+# Tab: Sekolah (8 kartu)
+
+cards:
+  - key: Q-SEK-01
+    name: Jumlah Sekolah per Kecamatan
+    tab: sekolah
+    collection: Dashboard Publik — Kartu
+    display: row
+    description: Sebaran jumlah sekolah aktif menurut kecamatan, diurutkan dari yang terbanyak.
+    layout: {row: 0, col: 0, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 8
+    visualization_settings:
+      graph.dimensions:
+        - kecamatan
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - jumlah_sekolah
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      )
+      SELECT kecamatan, COUNT(*) AS jumlah_sekolah
+      FROM sekolah_dim
+      GROUP BY kecamatan
+      ORDER BY jumlah_sekolah DESC
+  - key: Q-SEK-02
+    name: Sekolah per Jenjang dan Status
+    tab: sekolah
+    collection: Dashboard Publik — Kartu
+    display: bar
+    description: Jumlah sekolah aktif per jenjang, dipecah Negeri dan Swasta.
+    layout: {row: 0, col: 12, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 10
+    visualization_settings:
+      graph.dimensions:
+        - jenjang
+        - status_sekolah
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      stackable.stack_type: stacked
+      graph.metrics:
+        - jumlah_sekolah
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      )
+      SELECT jenjang, status_sekolah, COUNT(*) AS jumlah_sekolah
+      FROM sekolah_dim
+      GROUP BY jenjang, status_sekolah
+      ORDER BY jenjang, status_sekolah
+  - key: Q-SEK-03
+    name: Sebaran Akreditasi Sekolah
+    tab: sekolah
+    collection: Dashboard Publik — Kartu
+    display: pie
+    description: Akreditasi terakhir tiap sekolah (A, B, C, Terakreditasi, atau Belum terdata), diambil dari `dbo.akreditasi_sp` dengan `tanggal_sk` terbaru per sekolah.
+    layout: {row: 8, col: 0, w: 8, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 5
+    visualization_settings:
+      pie.dimension: akreditasi
+      pie.metric: jumlah_sekolah
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      ),
+      akreditasi_terakhir AS (
+        SELECT DISTINCT ON (dbo.akreditasi_sp.sekolah_id)
+               dbo.akreditasi_sp.sekolah_id,
+               ref.akreditasi.nama AS akreditasi
+        FROM dbo.akreditasi_sp
+        LEFT JOIN ref.akreditasi ON ref.akreditasi.akreditasi_id = dbo.akreditasi_sp.akreditasi_id
+        ORDER BY dbo.akreditasi_sp.sekolah_id, dbo.akreditasi_sp.tanggal_sk DESC NULLS LAST
+      )
+      SELECT COALESCE(akreditasi_terakhir.akreditasi, 'Belum terdata') AS akreditasi,
+             COUNT(*) AS jumlah_sekolah
+      FROM sekolah_dim
+      LEFT JOIN akreditasi_terakhir ON akreditasi_terakhir.sekolah_id = sekolah_dim.sekolah_id
+      GROUP BY 1
+      ORDER BY 2 DESC
+  - key: Q-SEK-04
+    name: Sekolah per Status Kepemilikan
+    tab: sekolah
+    collection: Dashboard Publik — Kartu
+    display: row
+    description: Jumlah sekolah aktif menurut status kepemilikan aset (Pemerintah Daerah, Yayasan, dan sebagainya).
+    layout: {row: 8, col: 8, w: 8, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 5
+    visualization_settings:
+      graph.dimensions:
+        - kepemilikan
+      graph.colors:
+        - '#082A4F'
+      graph.metrics:
+        - jumlah_sekolah
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      )
+      SELECT kepemilikan, COUNT(*) AS jumlah_sekolah
+      FROM sekolah_dim
+      GROUP BY kepemilikan
+      ORDER BY jumlah_sekolah DESC
+  - key: Q-SEK-05
+    name: Rata-rata Rombel per Sekolah
+    tab: sekolah
+    collection: Dashboard Publik — Kartu
+    display: bar
+    description: 'Untuk setiap jenjang: total rombel kelas dibagi jumlah sekolah aktif. Menunjukkan rata-rata jumlah rombel yang dikelola satu sekolah.'
+    layout: {row: 8, col: 16, w: 8, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 7
+    visualization_settings:
+      graph.dimensions:
+        - jenjang
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - rata_rombel_per_sekolah
+    sql: |-
+      WITH semester_acuan AS (
+        SELECT COALESCE(
+                 (SELECT s.semester_id
+                    FROM ref.semester s
+                   WHERE s.periode_aktif = 1
+                     AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb
+                                  WHERE rb.semester_id = s.semester_id
+                                    AND rb."Soft_delete" = 0
+                                    AND rb.jenis_rombel = 1)),
+                 (SELECT MAX(rb.semester_id)
+                    FROM dbo.rombongan_belajar rb
+                   WHERE rb."Soft_delete" = 0
+                     AND rb.jenis_rombel = 1)
+               ) AS semester_id
+      ),
+      sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      ),
+      rombel_dim AS (
+        SELECT
+          dbo.rombongan_belajar.rombongan_belajar_id,
+          dbo.rombongan_belajar.tingkat_pendidikan_id,
+          dbo.rombongan_belajar.nama AS nama_rombel,
+          dbo.rombongan_belajar.ptk_id AS wali_kelas_id,
+          sekolah_dim.sekolah_id,
+          sekolah_dim.npsn,
+          sekolah_dim.nama_sekolah,
+          sekolah_dim.jenjang,
+          sekolah_dim.kecamatan
+        FROM dbo.rombongan_belajar
+        JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
+        WHERE dbo.rombongan_belajar."Soft_delete" = 0
+          AND dbo.rombongan_belajar.jenis_rombel = 1
+          AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
+      )
+      SELECT sekolah_dim.jenjang,
+             COUNT(DISTINCT sekolah_dim.sekolah_id) AS jumlah_sekolah,
+             COUNT(rombel_dim.rombongan_belajar_id) AS total_rombel,
+             ROUND(COUNT(rombel_dim.rombongan_belajar_id)::numeric
+                   / NULLIF(COUNT(DISTINCT sekolah_dim.sekolah_id), 0), 1) AS rata_rombel_per_sekolah
+      FROM sekolah_dim
+      LEFT JOIN rombel_dim ON rombel_dim.sekolah_id = sekolah_dim.sekolah_id
+      GROUP BY sekolah_dim.jenjang
+      ORDER BY rata_rombel_per_sekolah DESC
+  - key: Q-SEK-06
+    name: Sekolah Tanpa Kepala Sekolah
+    tab: sekolah
+    collection: Dashboard Publik — Kartu
+    display: table
+    description: Daftar sekolah aktif yang tidak memiliki satu pun PTK aktif berjenis `Kepala Sekolah`. Kartu tindak lanjut untuk pengisian jabatan.
+    layout: {row: 16, col: 0, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 16
+    visualization_settings:
+      table.column_order:
+        - nama_sekolah
+        - npsn
+        - jenjang
+        - status_sekolah
+        - kecamatan
+        - desa
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      ),
+      ptk_all AS (
+        SELECT
+          dbo.ptk_terdaftar.ptk_id,
+          dbo.ptk_terdaftar.sekolah_id,
+          ref.jenis_ptk.jenis_ptk,
+          ref.jabatan_ptk.jabatan_ptk
+        FROM dbo.ptk_terdaftar
+        JOIN qc.vld_ptk ON qc.vld_ptk.ptk_id = dbo.ptk_terdaftar.ptk_id
+        JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ptk_terdaftar.sekolah_id
+        LEFT JOIN ref.jenis_ptk ON ref.jenis_ptk.jenis_ptk_id = dbo.ptk_terdaftar.jenis_ptk_id
+        LEFT JOIN ref.jabatan_ptk ON ref.jabatan_ptk.jabatan_ptk_id = dbo.ptk_terdaftar.jabatan_ptk_id
+        WHERE dbo.ptk_terdaftar."Soft_delete" = 0
+          AND dbo.ptk_terdaftar.jenis_keluar_id IS NULL
+          AND qc.vld_ptk.aktif = 1
+      )
+      SELECT sekolah_dim.nama_sekolah,
+             sekolah_dim.npsn,
+             sekolah_dim.jenjang,
+             sekolah_dim.status_sekolah,
+             sekolah_dim.kecamatan,
+             sekolah_dim.desa
+      FROM sekolah_dim
+      WHERE NOT EXISTS (
+              SELECT 1 FROM ptk_all
+               WHERE ptk_all.sekolah_id = sekolah_dim.sekolah_id
+                 AND ptk_all.jenis_ptk = 'Kepala Sekolah'
+            )
+      ORDER BY sekolah_dim.kecamatan, sekolah_dim.nama_sekolah
+  - key: Q-SEK-07
+    name: Sekolah Tanpa Rombel
+    tab: sekolah
+    collection: Dashboard Publik — Kartu
+    display: table
+    description: Daftar sekolah aktif yang tidak memiliki rombel kelas pada semester aktif. Biasanya menandakan sekolah baru, tidak beroperasi, atau data rombel belum diisi.
+    layout: {row: 16, col: 12, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 5
+    visualization_settings:
+      table.column_order:
+        - nama_sekolah
+        - npsn
+        - jenjang
+        - status_sekolah
+        - kecamatan
+        - desa
+    sql: |-
+      WITH semester_acuan AS (
+        SELECT COALESCE(
+                 (SELECT s.semester_id
+                    FROM ref.semester s
+                   WHERE s.periode_aktif = 1
+                     AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb
+                                  WHERE rb.semester_id = s.semester_id
+                                    AND rb."Soft_delete" = 0
+                                    AND rb.jenis_rombel = 1)),
+                 (SELECT MAX(rb.semester_id)
+                    FROM dbo.rombongan_belajar rb
+                   WHERE rb."Soft_delete" = 0
+                     AND rb.jenis_rombel = 1)
+               ) AS semester_id
+      ),
+      sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      ),
+      rombel_dim AS (
+        SELECT
+          dbo.rombongan_belajar.rombongan_belajar_id,
+          dbo.rombongan_belajar.tingkat_pendidikan_id,
+          dbo.rombongan_belajar.nama AS nama_rombel,
+          dbo.rombongan_belajar.ptk_id AS wali_kelas_id,
+          sekolah_dim.sekolah_id,
+          sekolah_dim.npsn,
+          sekolah_dim.nama_sekolah,
+          sekolah_dim.jenjang,
+          sekolah_dim.kecamatan
+        FROM dbo.rombongan_belajar
+        JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
+        WHERE dbo.rombongan_belajar."Soft_delete" = 0
+          AND dbo.rombongan_belajar.jenis_rombel = 1
+          AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
+      )
+      SELECT sekolah_dim.nama_sekolah,
+             sekolah_dim.npsn,
+             sekolah_dim.jenjang,
+             sekolah_dim.status_sekolah,
+             sekolah_dim.kecamatan,
+             sekolah_dim.desa
+      FROM sekolah_dim
+      WHERE NOT EXISTS (
+              SELECT 1 FROM rombel_dim WHERE rombel_dim.sekolah_id = sekolah_dim.sekolah_id
+            )
+      ORDER BY sekolah_dim.kecamatan, sekolah_dim.nama_sekolah
+  - key: Q-SEK-08
+    name: Daftar Sekolah dan Jumlah Rombel, PD, PTK
+    tab: sekolah
+    collection: Dashboard Publik — Kartu
+    display: table
+    description: Satu baris per sekolah aktif berisi identitas sekolah, kecamatan, desa, jenjang, status, serta jumlah rombel, peserta didik, dan PTK aktif. Kartu rujukan (drill-down) untuk tab Sekolah.
+    layout: {row: 24, col: 0, w: 24, h: 12}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 604
+    visualization_settings:
+      table.column_order:
+        - nama_sekolah
+        - npsn
+        - jenjang
+        - status_sekolah
+        - kecamatan
+        - desa
+        - jumlah_rombel
+        - jumlah_pd
+        - jumlah_ptk
+    sql: |-
+      WITH semester_acuan AS (
+        SELECT COALESCE(
+                 (SELECT s.semester_id
+                    FROM ref.semester s
+                   WHERE s.periode_aktif = 1
+                     AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb
+                                  WHERE rb.semester_id = s.semester_id
+                                    AND rb."Soft_delete" = 0
+                                    AND rb.jenis_rombel = 1)),
+                 (SELECT MAX(rb.semester_id)
+                    FROM dbo.rombongan_belajar rb
+                   WHERE rb."Soft_delete" = 0
+                     AND rb.jenis_rombel = 1)
+               ) AS semester_id
+      ),
+      sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      ),
+      rombel_dim AS (
+        SELECT
+          dbo.rombongan_belajar.rombongan_belajar_id,
+          dbo.rombongan_belajar.tingkat_pendidikan_id,
+          dbo.rombongan_belajar.nama AS nama_rombel,
+          dbo.rombongan_belajar.ptk_id AS wali_kelas_id,
+          sekolah_dim.sekolah_id,
+          sekolah_dim.npsn,
+          sekolah_dim.nama_sekolah,
+          sekolah_dim.jenjang,
+          sekolah_dim.kecamatan
+        FROM dbo.rombongan_belajar
+        JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
+        WHERE dbo.rombongan_belajar."Soft_delete" = 0
+          AND dbo.rombongan_belajar.jenis_rombel = 1
+          AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
+      ),
+      pd_dim AS (
+        SELECT
+          dbo.registrasi_peserta_didik.peserta_didik_id,
+          TRIM(dbo.peserta_didik.nisn) AS nisn,
+          dbo.registrasi_peserta_didik.sekolah_id,
+          dbo.registrasi_peserta_didik.nipd,
+          sekolah_dim.npsn,
+          sekolah_dim.nama_sekolah,
+          sekolah_dim.jenjang,
+          sekolah_dim.kecamatan
+        FROM dbo.registrasi_peserta_didik
+        JOIN dbo.peserta_didik
+          ON dbo.peserta_didik.peserta_didik_id = dbo.registrasi_peserta_didik.peserta_didik_id
+        JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.registrasi_peserta_didik.sekolah_id
+        WHERE dbo.registrasi_peserta_didik."Soft_delete" = 0
+          AND dbo.registrasi_peserta_didik.jenis_keluar_id IS NULL
+          AND TRIM(dbo.peserta_didik.nisn) ~ '^[0-9]{10}$'
+      ),
+      ptk_dim AS (
+        SELECT
+          dbo.ptk_terdaftar.ptk_id,
+          dbo.ptk_terdaftar.sekolah_id,
+          ref.jenis_ptk.jenis_ptk,
+          ref.jabatan_ptk.jabatan_ptk
+        FROM dbo.ptk_terdaftar
+        JOIN qc.vld_ptk ON qc.vld_ptk.ptk_id = dbo.ptk_terdaftar.ptk_id
+        JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ptk_terdaftar.sekolah_id
+        LEFT JOIN ref.jenis_ptk ON ref.jenis_ptk.jenis_ptk_id = dbo.ptk_terdaftar.jenis_ptk_id
+        LEFT JOIN ref.jabatan_ptk ON ref.jabatan_ptk.jabatan_ptk_id = dbo.ptk_terdaftar.jabatan_ptk_id
+        WHERE dbo.ptk_terdaftar."Soft_delete" = 0
+          AND dbo.ptk_terdaftar.jenis_keluar_id IS NULL
+          AND qc.vld_ptk.aktif = 1
+          AND dbo.ptk_terdaftar.ptk_induk = 1
+      )
+      SELECT sekolah_dim.nama_sekolah,
+             sekolah_dim.npsn,
+             sekolah_dim.jenjang,
+             sekolah_dim.status_sekolah,
+             sekolah_dim.kecamatan,
+             sekolah_dim.desa,
+             (SELECT COUNT(*) FROM rombel_dim
+               WHERE rombel_dim.sekolah_id = sekolah_dim.sekolah_id) AS jumlah_rombel,
+             (SELECT COUNT(DISTINCT nisn) FROM pd_dim
+               WHERE pd_dim.sekolah_id = sekolah_dim.sekolah_id) AS jumlah_pd,
+             (SELECT COUNT(DISTINCT ptk_id) FROM ptk_dim
+               WHERE ptk_dim.sekolah_id = sekolah_dim.sekolah_id) AS jumlah_ptk
+      FROM sekolah_dim
+      ORDER BY jumlah_pd DESC

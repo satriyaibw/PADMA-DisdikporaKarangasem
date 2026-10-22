@@ -1,0 +1,328 @@
+# GENERATED oleh tools/export.py -- jangan diedit tangan tanpa menjalankan
+# `python3 tools/validate.py` sesudahnya.
+#
+# Sumber kebenaran dashboard publik Disdikpora Karangasem. Semua rujukan
+# memakai NAMA (database, collection, kartu) dan {schema, table, column},
+# bukan id numerik Metabase, supaya bisa diterapkan di instance lain.
+# Tab: ATS (7 kartu)
+
+cards:
+  - key: Q-ATS-01
+    name: Total ATS Usia Sekolah (7–18 Tahun)
+    tab: ats
+    collection: Dashboard Publik — Kartu
+    display: scalar
+    description: Total ATS usia 7-18 tahun di Kabupaten Karangasem. Kolom semester_id ATS adalah periode pencatatan; gunakan filter Semester (ATS) untuk menelusuri per periode.
+    layout: {row: 0, col: 0, w: 24, h: 4}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: ats, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang-ats, label: Jenjang, field: {schema: dbo, table: ats, column: jenjang_pendidikan}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: dbo, table: ats, column: kecamatan}}
+      - {tag: semester_ats, parameter: p-semester-ats, label: Semester (ATS), field: {schema: dbo, table: ats, column: semester_id}}
+    expect:
+      value: 3032
+    visualization_settings: {}
+    sql: |-
+      WITH ats_dim AS (
+        SELECT
+          dbo.ats.ats_id,
+          dbo.ats.semester_id,
+          TRIM(dbo.ats.status) AS status,
+          dbo.ats.usia,
+          dbo.ats.kecamatan,
+          dbo.ats.desa_kelurahan AS desa,
+          COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,
+          dbo.ats.tahun
+        FROM dbo.ats
+        WHERE dbo.ats.soft_delete = 0
+          AND dbo.ats.usia BETWEEN 7 AND 18
+          AND dbo.ats.kode_kabupaten = '220800'
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{semester_ats}}]]
+      )
+      SELECT COUNT(*) AS total_ats
+      FROM ats_dim
+  - key: Q-ATS-02
+    name: Komposisi Status ATS
+    tab: ats
+    collection: Dashboard Publik — Kartu
+    display: pie
+    description: 'Sebaran ATS menurut status: BPB (belum pernah bersekolah), LTM (lulus tidak melanjutkan), dan DO (drop out). Nilai dinormalisasi dengan `TRIM()` karena basis data menyimpan dua varian (''DO'' dan ''DO '').'
+    layout: {row: 4, col: 0, w: 8, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: ats, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang-ats, label: Jenjang, field: {schema: dbo, table: ats, column: jenjang_pendidikan}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: dbo, table: ats, column: kecamatan}}
+      - {tag: semester_ats, parameter: p-semester-ats, label: Semester (ATS), field: {schema: dbo, table: ats, column: semester_id}}
+    expect:
+      rows: 3
+    visualization_settings:
+      pie.dimension: status
+      pie.metric: jumlah_ats
+    sql: |-
+      WITH ats_dim AS (
+        SELECT
+          dbo.ats.ats_id,
+          dbo.ats.semester_id,
+          TRIM(dbo.ats.status) AS status,
+          dbo.ats.usia,
+          dbo.ats.kecamatan,
+          dbo.ats.desa_kelurahan AS desa,
+          COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,
+          dbo.ats.tahun
+        FROM dbo.ats
+        WHERE dbo.ats.soft_delete = 0
+          AND dbo.ats.usia BETWEEN 7 AND 18
+          AND dbo.ats.kode_kabupaten = '220800'
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{semester_ats}}]]
+      )
+      SELECT status, COUNT(*) AS jumlah_ats
+      FROM ats_dim
+      GROUP BY status
+      ORDER BY jumlah_ats DESC
+  - key: Q-ATS-03
+    name: ATS per Kecamatan
+    tab: ats
+    collection: Dashboard Publik — Kartu
+    display: row
+    description: Jumlah ATS usia 7–18 tahun pada setiap kecamatan.
+    layout: {row: 4, col: 8, w: 8, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: ats, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang-ats, label: Jenjang, field: {schema: dbo, table: ats, column: jenjang_pendidikan}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: dbo, table: ats, column: kecamatan}}
+      - {tag: semester_ats, parameter: p-semester-ats, label: Semester (ATS), field: {schema: dbo, table: ats, column: semester_id}}
+    expect:
+      rows: 8
+    visualization_settings:
+      graph.dimensions:
+        - kecamatan
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - jumlah_ats
+    sql: |-
+      WITH ats_dim AS (
+        SELECT
+          dbo.ats.ats_id,
+          dbo.ats.semester_id,
+          TRIM(dbo.ats.status) AS status,
+          dbo.ats.usia,
+          dbo.ats.kecamatan,
+          dbo.ats.desa_kelurahan AS desa,
+          COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,
+          dbo.ats.tahun
+        FROM dbo.ats
+        WHERE dbo.ats.soft_delete = 0
+          AND dbo.ats.usia BETWEEN 7 AND 18
+          AND dbo.ats.kode_kabupaten = '220800'
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{semester_ats}}]]
+      )
+      SELECT kecamatan, COUNT(*) AS jumlah_ats
+      FROM ats_dim
+      GROUP BY kecamatan
+      ORDER BY jumlah_ats DESC
+  - key: Q-ATS-04
+    name: ATS per Jenjang Pendidikan Terakhir
+    tab: ats
+    collection: Dashboard Publik — Kartu
+    display: bar
+    description: Jumlah ATS menurut jenjang pendidikan terakhir yang tercatat (SD, SMP, SMA, Paket A/B/C, atau tidak terdata).
+    layout: {row: 4, col: 16, w: 8, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: ats, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang-ats, label: Jenjang, field: {schema: dbo, table: ats, column: jenjang_pendidikan}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: dbo, table: ats, column: kecamatan}}
+      - {tag: semester_ats, parameter: p-semester-ats, label: Semester (ATS), field: {schema: dbo, table: ats, column: semester_id}}
+    expect:
+      rows: 7
+    visualization_settings:
+      graph.dimensions:
+        - jenjang
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - jumlah_ats
+    sql: |-
+      WITH ats_dim AS (
+        SELECT
+          dbo.ats.ats_id,
+          dbo.ats.semester_id,
+          TRIM(dbo.ats.status) AS status,
+          dbo.ats.usia,
+          dbo.ats.kecamatan,
+          dbo.ats.desa_kelurahan AS desa,
+          COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,
+          dbo.ats.tahun
+        FROM dbo.ats
+        WHERE dbo.ats.soft_delete = 0
+          AND dbo.ats.usia BETWEEN 7 AND 18
+          AND dbo.ats.kode_kabupaten = '220800'
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{semester_ats}}]]
+      )
+      SELECT jenjang, COUNT(*) AS jumlah_ats
+      FROM ats_dim
+      GROUP BY jenjang
+      ORDER BY jumlah_ats DESC
+  - key: Q-ATS-05
+    name: ATS per Kelompok Usia
+    tab: ats
+    collection: Dashboard Publik — Kartu
+    display: bar
+    description: 'Jumlah ATS dikelompokkan menurut rentang usia sekolah: 7–12 (SD), 13–15 (SMP), dan 16–18 (SMA).'
+    layout: {row: 12, col: 0, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: ats, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang-ats, label: Jenjang, field: {schema: dbo, table: ats, column: jenjang_pendidikan}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: dbo, table: ats, column: kecamatan}}
+      - {tag: semester_ats, parameter: p-semester-ats, label: Semester (ATS), field: {schema: dbo, table: ats, column: semester_id}}
+    expect:
+      rows: 3
+    visualization_settings:
+      graph.dimensions:
+        - kelompok_usia
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - jumlah_ats
+    sql: |-
+      WITH ats_dim AS (
+        SELECT
+          dbo.ats.ats_id,
+          dbo.ats.semester_id,
+          TRIM(dbo.ats.status) AS status,
+          dbo.ats.usia,
+          dbo.ats.kecamatan,
+          dbo.ats.desa_kelurahan AS desa,
+          COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,
+          dbo.ats.tahun
+        FROM dbo.ats
+        WHERE dbo.ats.soft_delete = 0
+          AND dbo.ats.usia BETWEEN 7 AND 18
+          AND dbo.ats.kode_kabupaten = '220800'
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{semester_ats}}]]
+      )
+      SELECT CASE
+               WHEN usia BETWEEN 7 AND 12 THEN '7-12 (SD)'
+               WHEN usia BETWEEN 13 AND 15 THEN '13-15 (SMP)'
+               ELSE '16-18 (SMA)'
+             END AS kelompok_usia,
+             COUNT(*) AS jumlah_ats
+      FROM ats_dim
+      GROUP BY 1
+      ORDER BY 1
+  - key: Q-ATS-06
+    name: ATS per Tahun Pendataan
+    tab: ats
+    collection: Dashboard Publik — Kartu
+    display: bar
+    description: Tahun pendataan ATS. Sebagian besar baris berasal dari pendataan 2023; periode pencatatan (semester_id) dapat difilter lewat filter Semester (ATS).
+    layout: {row: 12, col: 12, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: ats, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang-ats, label: Jenjang, field: {schema: dbo, table: ats, column: jenjang_pendidikan}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: dbo, table: ats, column: kecamatan}}
+      - {tag: semester_ats, parameter: p-semester-ats, label: Semester (ATS), field: {schema: dbo, table: ats, column: semester_id}}
+    expect:
+      rows: 3
+    visualization_settings:
+      graph.dimensions:
+        - tahun
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - jumlah_ats
+    sql: |-
+      WITH ats_dim AS (
+        SELECT
+          dbo.ats.ats_id,
+          dbo.ats.semester_id,
+          TRIM(dbo.ats.status) AS status,
+          dbo.ats.usia,
+          dbo.ats.kecamatan,
+          dbo.ats.desa_kelurahan AS desa,
+          COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,
+          dbo.ats.tahun
+        FROM dbo.ats
+        WHERE dbo.ats.soft_delete = 0
+          AND dbo.ats.usia BETWEEN 7 AND 18
+          AND dbo.ats.kode_kabupaten = '220800'
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{semester_ats}}]]
+      )
+      SELECT tahun, COUNT(*) AS jumlah_ats
+      FROM ats_dim
+      GROUP BY tahun
+      ORDER BY tahun
+  - key: Q-ATS-07
+    name: 15 Desa dengan ATS Terbanyak
+    tab: ats
+    collection: Dashboard Publik — Kartu
+    display: table
+    description: Peringkat 15 desa/kelurahan dengan jumlah ATS usia 7–18 tahun terbanyak.
+    layout: {row: 20, col: 0, w: 24, h: 10}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: ats, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang-ats, label: Jenjang, field: {schema: dbo, table: ats, column: jenjang_pendidikan}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: dbo, table: ats, column: kecamatan}}
+      - {tag: semester_ats, parameter: p-semester-ats, label: Semester (ATS), field: {schema: dbo, table: ats, column: semester_id}}
+    expect:
+      rows: 15
+    visualization_settings:
+      table.column_order:
+        - desa
+        - kecamatan
+        - jumlah_ats
+    sql: |-
+      WITH ats_dim AS (
+        SELECT
+          dbo.ats.ats_id,
+          dbo.ats.semester_id,
+          TRIM(dbo.ats.status) AS status,
+          dbo.ats.usia,
+          dbo.ats.kecamatan,
+          dbo.ats.desa_kelurahan AS desa,
+          COALESCE(NULLIF(dbo.ats.jenjang_pendidikan, ''), 'Tidak terdata') AS jenjang,
+          dbo.ats.tahun
+        FROM dbo.ats
+        WHERE dbo.ats.soft_delete = 0
+          AND dbo.ats.usia BETWEEN 7 AND 18
+          AND dbo.ats.kode_kabupaten = '220800'
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{semester_ats}}]]
+      )
+      SELECT desa, kecamatan, COUNT(*) AS jumlah_ats
+      FROM ats_dim
+      GROUP BY 1, 2
+      ORDER BY jumlah_ats DESC
+      LIMIT 15

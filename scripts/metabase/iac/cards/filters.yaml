@@ -1,0 +1,104 @@
+# GENERATED oleh tools/export.py -- jangan diedit tangan tanpa menjalankan
+# `python3 tools/validate.py` sesudahnya.
+#
+# Sumber kebenaran dashboard publik Disdikpora Karangasem. Semua rujukan
+# memakai NAMA (database, collection, kartu) dan {schema, table, column},
+# bukan id numerik Metabase, supaya bisa diterapkan di instance lain.
+#
+# Kartu bantu: pemasok opsi dropdown filter, tidak tampil di dashboard.
+
+cards:
+  - key: filter-desa
+    name: Daftar Desa/Kelurahan
+    collection: Filter — Daftar Nilai
+    display: table
+    description: Sumber nilai dropdown filter dashboard (bukan kartu analitik).
+    expect:
+      rows: 88
+    sql: |-
+      SELECT DISTINCT dbo.sekolah.desa_kelurahan AS desa
+      FROM dbo.sekolah
+      WHERE dbo.sekolah.keaktifan = 1 AND dbo.sekolah."Soft_delete" = 0
+      ORDER BY 1
+  - key: filter-jabatan-ptk
+    name: Daftar Jabatan PTK
+    collection: Filter — Daftar Nilai
+    display: table
+    description: Sumber nilai dropdown filter dashboard (bukan kartu analitik).
+    expect:
+      rows: 26
+    sql: |-
+      SELECT DISTINCT ref.jabatan_ptk.jabatan_ptk AS jabatan_ptk
+      FROM dbo.ptk_terdaftar
+      JOIN qc.vld_ptk ON qc.vld_ptk.ptk_id = dbo.ptk_terdaftar.ptk_id
+      LEFT JOIN ref.jabatan_ptk ON ref.jabatan_ptk.jabatan_ptk_id = dbo.ptk_terdaftar.jabatan_ptk_id
+      JOIN dbo.sekolah ON dbo.sekolah.sekolah_id = dbo.ptk_terdaftar.sekolah_id
+      WHERE dbo.ptk_terdaftar."Soft_delete" = 0 AND dbo.ptk_terdaftar.jenis_keluar_id IS NULL
+        AND qc.vld_ptk.aktif = 1 AND dbo.ptk_terdaftar.ptk_induk = 1
+        AND dbo.sekolah.keaktifan = 1 AND dbo.sekolah."Soft_delete" = 0
+        AND ref.jabatan_ptk.jabatan_ptk IS NOT NULL
+      ORDER BY 1
+  - key: filter-jenis-ptk
+    name: Daftar Jenis PTK
+    collection: Filter — Daftar Nilai
+    display: table
+    description: Sumber nilai dropdown filter dashboard (bukan kartu analitik).
+    expect:
+      rows: 3
+    sql: |-
+      SELECT DISTINCT ref.jenis_ptk.jenis_ptk AS jenis_ptk
+      FROM dbo.ptk_terdaftar
+      JOIN qc.vld_ptk ON qc.vld_ptk.ptk_id = dbo.ptk_terdaftar.ptk_id
+      LEFT JOIN ref.jenis_ptk ON ref.jenis_ptk.jenis_ptk_id = dbo.ptk_terdaftar.jenis_ptk_id
+      JOIN dbo.sekolah ON dbo.sekolah.sekolah_id = dbo.ptk_terdaftar.sekolah_id
+      WHERE dbo.ptk_terdaftar."Soft_delete" = 0 AND dbo.ptk_terdaftar.jenis_keluar_id IS NULL
+        AND qc.vld_ptk.aktif = 1 AND dbo.ptk_terdaftar.ptk_induk = 1
+        AND dbo.sekolah.keaktifan = 1 AND dbo.sekolah."Soft_delete" = 0
+        AND ref.jenis_ptk.jenis_ptk IS NOT NULL
+      ORDER BY 1
+  - key: filter-jenjang
+    name: Daftar Jenjang Satuan Pendidikan
+    collection: Filter — Daftar Nilai
+    display: table
+    description: Sumber nilai dropdown filter dashboard (bukan kartu analitik).
+    expect:
+      rows: 7
+    sql: |-
+      SELECT DISTINCT ref.bentuk_pendidikan.nama AS jenjang
+      FROM dbo.sekolah
+      JOIN ref.bentuk_pendidikan
+        ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+      WHERE dbo.sekolah.keaktifan = 1 AND dbo.sekolah."Soft_delete" = 0
+      ORDER BY 1
+  - key: filter-jenjang-ats
+    name: Daftar Jenjang ATS
+    collection: Filter — Daftar Nilai
+    display: table
+    description: Sumber nilai dropdown filter dashboard (bukan kartu analitik).
+    expect:
+      rows: 6
+    sql: |-
+      SELECT DISTINCT dbo.ats.jenjang_pendidikan AS jenjang
+      FROM dbo.ats
+      WHERE dbo.ats.soft_delete = 0
+        AND dbo.ats.usia BETWEEN 7 AND 18
+        AND dbo.ats.kode_kabupaten = '220800'
+        AND dbo.ats.jenjang_pendidikan IS NOT NULL
+      ORDER BY 1
+  - key: filter-kecamatan
+    name: Daftar Kecamatan
+    collection: Filter — Daftar Nilai
+    display: table
+    description: Sumber nilai dropdown filter dashboard (bukan kartu analitik).
+    expect:
+      rows: 8
+    sql: |-
+      SELECT DISTINCT ref.mst_wilayah.nama AS kecamatan
+      FROM dbo.sekolah
+      JOIN ref.mst_wilayah
+        ON ref.mst_wilayah.kode_wilayah = COALESCE(
+             (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                FROM ref.mst_wilayah w WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+             dbo.sekolah.kode_wilayah)
+      WHERE dbo.sekolah.keaktifan = 1 AND dbo.sekolah."Soft_delete" = 0
+      ORDER BY 1

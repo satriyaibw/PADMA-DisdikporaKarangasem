@@ -1,0 +1,4 @@
+# Toolchain IaC dashboard Metabase — hanya butuh PyYAML.
+# Metabase API diakses memakai stdlib (urllib) supaya tetap bisa jalan di mesin
+# target yang minim paket.
+pyyaml>=6.0
