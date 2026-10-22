@@ -176,3 +176,28 @@ jobs:
       - name: Check code style
         working-directory: dashboard-karangasem
         run: vendor/bin/pint --test
+
+  metabase-iac:
+    name: Metabase dashboard spec
+    runs-on: ubuntu-latest
+
+    # Lint deklaratif "card as code" (scripts/metabase/iac). Tidak butuh
+    # Metabase, database, atau kredensial: memeriksa skema YAML, tag vs SQL,
+    # static list [nilai, label], dan grid 24 kolom yang tidak bertumpuk.
+    # Apply ke instance tetap manual (butuh admin Metabase + backbone_client).
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install spec dependencies
+        working-directory: scripts/metabase/iac
+        run: pip install -r requirements.txt
+
+      - name: Validate dashboard spec
+        working-directory: scripts/metabase/iac
+        run: python3 tools/validate.py
