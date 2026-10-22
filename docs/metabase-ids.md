@@ -1,7 +1,12 @@
 # Metabase Configuration — Dashboard IDs & Settings
 
 > **Fase 2 — Metabase** (Issue #3)
-> Terakhir update: 2026-10-22 (filter Semester pada tab ATS & Sarana Prasarana; 6 tab, 46 kartu)
+> Terakhir update: 2026-10-22 (card as code: `scripts/metabase/iac/`; 6 tab, 46 kartu)
+>
+> **Sumber kebenaran dashboard publik adalah kode**, bukan instance Metabase:
+> [`scripts/metabase/iac/`](../scripts/metabase/iac/README.md). Dokumen ini mencatat
+> id/nilai **pada instance yang sedang berjalan** (berguna untuk audit dan troubleshooting);
+> kalau berbeda dengan YAML, YAML yang menang.
 
 ## Site URL
 
@@ -127,19 +132,27 @@ Metabase hanya menampilkan parameter yang terpetakan ke dashcard pada **tab akti
 
 ### Re-apply ke instance baru
 
-Perubahan kartu/parameter di atas hidup di instance Metabase, bukan di repo. Untuk instance baru
-atau hasil rebuild, jalankan (dari root repo, kredensial dibaca dari `dashboard-karangasem/.env`):
+Seluruh dashboard (6 tab, 46 kartu, 6 kartu bantu, 9 parameter, tata letak, mapping, public link)
+didefinisikan sebagai kode di [`scripts/metabase/iac/`](../scripts/metabase/iac/README.md):
+`dashboard.public.yaml` + `cards/*.yaml`. Tidak ada id numerik di YAML, sehingga spec bisa
+diterapkan ke instance mana pun.
 
 ```bash
-python3 scripts/metabase/apply-semester-filter.py --verify-only   # periksa drift
-python3 scripts/metabase/apply-semester-filter.py --dry-run       # pratinjau
-python3 scripts/metabase/apply-semester-filter.py                 # terapkan + verifikasi
+cd scripts/metabase/iac
+python3 tools/validate.py            # lint offline, tanpa Metabase
+python3 tools/apply.py --dry-run     # pratinjau perubahan
+python3 tools/apply.py               # terapkan (idempoten, aman diulang)
+python3 tools/verify.py              # struktur + 46 dashcard + angka ekspektasi
 ```
 
-Script bersifat idempoten, mencadangkan state lama ke `scripts/metabase/.backup/<timestamp>/`,
-lalu memverifikasi struktur **dan** menjalankan seluruh 46 dashcard lewat endpoint publik
-(semua harus `completed`). Payload ada di `scripts/metabase/semester-filter.sql.json`; sumber
-kebenarannya tetap `metabase_questions.md` §3.1/§3.4/§4.1/§6.
+`apply.py` mencetak `METABASE_PUBLIC_DASHBOARD_ID` dan `METABASE_PUBLIC_DASHBOARD_UUID` untuk
+`.env` aplikasi; `verify.py` menjalankan setiap dashcard lewat endpoint publik dan membandingkan
+hasilnya dengan `expect` di YAML.
+
+Script lama `scripts/metabase/apply-semester-filter.py` tetap ada sebagai jalur perbaikan cepat
+untuk filter semester saja (payload `semester-filter.sql.json`, dengan backup otomatis ke
+`scripts/metabase/.backup/<timestamp>/`). Untuk rebuild penuh, pakai IaC di atas — script lama
+tidak membuat kartu, tab, atau dashboard yang belum ada.
 
 ## Kartu Bantu Filter (6)
 

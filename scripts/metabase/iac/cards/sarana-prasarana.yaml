@@ -1,0 +1,575 @@
+# GENERATED oleh tools/export.py -- jangan diedit tangan tanpa menjalankan
+# `python3 tools/validate.py` sesudahnya.
+#
+# Sumber kebenaran dashboard publik Disdikpora Karangasem. Semua rujukan
+# memakai NAMA (database, collection, kartu) dan {schema, table, column},
+# bukan id numerik Metabase, supaya bisa diterapkan di instance lain.
+# Tab: Sarana Prasarana (8 kartu)
+
+cards:
+  - key: Q-SAR-01
+    name: Jumlah Sarana per Kategori
+    tab: sarana-prasarana
+    collection: Dashboard Publik — Kartu
+    display: table
+    description: 'Rekapitulasi jumlah aset sarana pada sekolah aktif: ruang, bangunan, tanah, alat, dan judul buku.'
+    layout: {row: 0, col: 0, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 5
+    visualization_settings:
+      table.column_order:
+        - kategori
+        - jumlah
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      )
+      SELECT 'Ruang' AS kategori, COUNT(*) AS jumlah
+      FROM dbo.ruang
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id
+      WHERE dbo.ruang."Soft_delete" = 0
+      UNION ALL
+      SELECT 'Bangunan', COUNT(*)
+      FROM dbo.bangunan
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.bangunan.sekolah_id
+      WHERE dbo.bangunan."Soft_delete" = 0
+      UNION ALL
+      SELECT 'Tanah', COUNT(*)
+      FROM dbo.tanah
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.tanah.sekolah_id
+      WHERE dbo.tanah."Soft_delete" = 0
+      UNION ALL
+      SELECT 'Alat', COUNT(*)
+      FROM dbo.alat
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.alat.sekolah_id
+      WHERE dbo.alat."Soft_delete" = 0
+      UNION ALL
+      SELECT 'Judul buku', COUNT(*)
+      FROM dbo.buku
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.buku.sekolah_id
+      WHERE dbo.buku."Soft_delete" = 0
+      ORDER BY jumlah DESC
+  - key: Q-SAR-02
+    name: Kondisi Ruang (Tercatat)
+    tab: sarana-prasarana
+    collection: Dashboard Publik — Kartu
+    display: bar
+    description: Hanya terisi pada semester 2026/2027. Kondisi ruang belum tercatat untuk periode lain, sehingga memilih semester lama akan menampilkan kartu kosong.
+    layout: {row: 0, col: 12, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: semester_ruang, parameter: p-semester, label: Semester, field: {schema: dbo, table: ruang_longitudinal, column: semester_id}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 4
+    visualization_settings:
+      graph.dimensions:
+        - kondisi
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - jumlah_ruang
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      )
+      SELECT ref.jenis_kerusakan.klasifikasi AS kondisi,
+             COUNT(*) AS jumlah_ruang
+      FROM dbo.ruang_longitudinal
+      JOIN dbo.ruang ON dbo.ruang.id_ruang = dbo.ruang_longitudinal.id_ruang
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id
+      LEFT JOIN ref.jenis_kerusakan
+        ON ref.jenis_kerusakan.kerusakan_id = dbo.ruang_longitudinal.kerusakan_id
+      WHERE dbo.ruang."Soft_delete" = 0
+        AND dbo.ruang_longitudinal.semester_id = (
+              SELECT MAX(dbo.ruang_longitudinal.semester_id)
+                FROM dbo.ruang_longitudinal
+               WHERE dbo.ruang_longitudinal."Soft_delete" = 0
+               [[AND {{semester_ruang}}]]
+            )
+      GROUP BY 1
+      ORDER BY 2 DESC
+  - key: Q-SAR-03
+    name: Rata-rata Tingkat Kerusakan Ruang
+    tab: sarana-prasarana
+    collection: Dashboard Publik — Kartu
+    display: scalar
+    description: Hanya terisi pada semester 2026/2027. Nilai 0-100, bukan nilai rupiah.
+    layout: {row: 8, col: 0, w: 6, h: 4}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: semester_ruang, parameter: p-semester, label: Semester, field: {schema: dbo, table: ruang_longitudinal, column: semester_id}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      value: 26.85
+    visualization_settings:
+      column_settings:
+        '["name","rata_tingkat_kerusakan"]':
+          suffix: ' %'
+          decimals: 2
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      )
+      SELECT ROUND(AVG(dbo.ruang_longitudinal.nilai_kerusakan), 2) AS rata_tingkat_kerusakan
+      FROM dbo.ruang_longitudinal
+      JOIN dbo.ruang ON dbo.ruang.id_ruang = dbo.ruang_longitudinal.id_ruang
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id
+      WHERE dbo.ruang."Soft_delete" = 0
+        AND dbo.ruang_longitudinal.semester_id = (
+              SELECT MAX(dbo.ruang_longitudinal.semester_id)
+                FROM dbo.ruang_longitudinal
+               WHERE dbo.ruang_longitudinal."Soft_delete" = 0
+               [[AND {{semester_ruang}}]]
+            )
+      HAVING COUNT(dbo.ruang_longitudinal.nilai_kerusakan) > 0
+  - key: Q-SAR-06
+    name: Persentase Sekolah Memiliki Perpustakaan
+    tab: sarana-prasarana
+    collection: Dashboard Publik — Kartu
+    display: scalar
+    description: Persentase sekolah aktif yang memiliki minimal satu ruang berjenis perpustakaan.
+    layout: {row: 8, col: 6, w: 6, h: 4}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      value: 66.06
+    visualization_settings:
+      column_settings:
+        '["name","persen_sekolah_berperpustakaan"]':
+          suffix: ' %'
+          decimals: 2
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      ),
+      perpus AS (
+        SELECT DISTINCT dbo.ruang.sekolah_id
+        FROM dbo.ruang
+        JOIN ref.jenis_prasarana
+          ON ref.jenis_prasarana.jenis_prasarana_id = dbo.ruang.jenis_prasarana_id
+        WHERE dbo.ruang."Soft_delete" = 0
+          AND ref.jenis_prasarana.nama ILIKE '%perpustakaan%'
+      )
+      SELECT ROUND(100.0 * COUNT(perpus.sekolah_id) / NULLIF(COUNT(*), 0), 2) AS persen_sekolah_berperpustakaan
+      FROM sekolah_dim
+      LEFT JOIN perpus ON perpus.sekolah_id = sekolah_dim.sekolah_id
+  - key: Q-SAR-04
+    name: Ruang Rusak Berat per Kecamatan
+    tab: sarana-prasarana
+    collection: Dashboard Publik — Kartu
+    display: row
+    description: Hanya terisi pada semester 2026/2027.
+    layout: {row: 8, col: 12, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: semester_ruang, parameter: p-semester, label: Semester, field: {schema: dbo, table: ruang_longitudinal, column: semester_id}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 8
+    visualization_settings:
+      graph.dimensions:
+        - kecamatan
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - jumlah_ruang_rusak_berat
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      )
+      SELECT sekolah_dim.kecamatan, COUNT(*) AS jumlah_ruang_rusak_berat
+      FROM dbo.ruang_longitudinal
+      JOIN dbo.ruang ON dbo.ruang.id_ruang = dbo.ruang_longitudinal.id_ruang
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.ruang.sekolah_id
+      JOIN ref.jenis_kerusakan
+        ON ref.jenis_kerusakan.kerusakan_id = dbo.ruang_longitudinal.kerusakan_id
+      WHERE dbo.ruang."Soft_delete" = 0
+        AND dbo.ruang_longitudinal.semester_id = (
+              SELECT MAX(dbo.ruang_longitudinal.semester_id)
+                FROM dbo.ruang_longitudinal
+               WHERE dbo.ruang_longitudinal."Soft_delete" = 0
+               [[AND {{semester_ruang}}]]
+            )
+        AND ref.jenis_kerusakan.klasifikasi = 'Rusak Berat'
+      GROUP BY 1
+      ORDER BY 2 DESC
+  - key: Q-SAR-05
+    name: Kecukupan Ruang Kelas terhadap Rombel
+    tab: sarana-prasarana
+    collection: Dashboard Publik — Kartu
+    display: bar
+    description: Jumlah rombel mengikuti semester aktif/terbaru; jumlah ruang kelas tidak memiliki dimensi semester.
+    layout: {row: 12, col: 0, w: 12, h: 12}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 7
+    visualization_settings:
+      graph.dimensions:
+        - jenjang
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - rasio_ruang_vs_rombel
+    sql: |-
+      WITH semester_acuan AS (
+        SELECT COALESCE(
+                 (SELECT s.semester_id
+                    FROM ref.semester s
+                   WHERE s.periode_aktif = 1
+                     AND EXISTS (SELECT 1 FROM dbo.rombongan_belajar rb
+                                  WHERE rb.semester_id = s.semester_id
+                                    AND rb."Soft_delete" = 0
+                                    AND rb.jenis_rombel = 1)),
+                 (SELECT MAX(rb.semester_id)
+                    FROM dbo.rombongan_belajar rb
+                   WHERE rb."Soft_delete" = 0
+                     AND rb.jenis_rombel = 1)
+               ) AS semester_id
+      ),
+      sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      ),
+      rombel_dim AS (
+        SELECT
+          dbo.rombongan_belajar.rombongan_belajar_id,
+          dbo.rombongan_belajar.tingkat_pendidikan_id,
+          dbo.rombongan_belajar.nama AS nama_rombel,
+          dbo.rombongan_belajar.ptk_id AS wali_kelas_id,
+          sekolah_dim.sekolah_id,
+          sekolah_dim.npsn,
+          sekolah_dim.nama_sekolah,
+          sekolah_dim.jenjang,
+          sekolah_dim.kecamatan
+        FROM dbo.rombongan_belajar
+        JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.rombongan_belajar.sekolah_id
+        WHERE dbo.rombongan_belajar."Soft_delete" = 0
+          AND dbo.rombongan_belajar.jenis_rombel = 1
+          AND dbo.rombongan_belajar.semester_id = (SELECT semester_id FROM semester_acuan)
+      ),
+      per_sekolah AS (
+        SELECT sekolah_dim.sekolah_id,
+               sekolah_dim.jenjang,
+               (SELECT COUNT(*)
+                  FROM dbo.ruang
+                  JOIN ref.jenis_prasarana
+                    ON ref.jenis_prasarana.jenis_prasarana_id = dbo.ruang.jenis_prasarana_id
+                 WHERE dbo.ruang.sekolah_id = sekolah_dim.sekolah_id
+                   AND dbo.ruang."Soft_delete" = 0
+                   AND ref.jenis_prasarana.nama = 'Ruang Teori/Kelas') AS ruang_kelas,
+               (SELECT COUNT(*) FROM rombel_dim WHERE rombel_dim.sekolah_id = sekolah_dim.sekolah_id) AS rombel
+        FROM sekolah_dim
+      )
+      SELECT jenjang,
+             SUM(ruang_kelas) AS total_ruang_kelas,
+             SUM(rombel) AS total_rombel,
+             ROUND(SUM(ruang_kelas)::numeric / NULLIF(SUM(rombel), 0), 2) AS rasio_ruang_vs_rombel
+      FROM per_sekolah
+      GROUP BY jenjang
+      ORDER BY rasio_ruang_vs_rombel
+  - key: Q-SAR-07
+    name: Sumber Air Bersih Sekolah
+    tab: sarana-prasarana
+    collection: Dashboard Publik — Kartu
+    display: bar
+    description: Satu baris per sekolah per semester. Gunakan filter Semester untuk membandingkan periode 2013/2014 sampai 2026/2027.
+    layout: {row: 16, col: 12, w: 12, h: 8}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: semester_sanitasi, parameter: p-semester, label: Semester, field: {schema: dbo, table: sanitasi, column: semester_id}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 9
+    visualization_settings:
+      graph.dimensions:
+        - sumber_air
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - jumlah_sekolah
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      )
+      SELECT COALESCE(ref.sumber_air.nama, 'Tidak terdata') AS sumber_air,
+             COUNT(*) AS jumlah_sekolah
+      FROM dbo.sanitasi
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.sanitasi.sekolah_id
+      LEFT JOIN ref.sumber_air ON ref.sumber_air.sumber_air_id = dbo.sanitasi.sumber_air_id
+      WHERE dbo.sanitasi."Soft_delete" = 0
+        AND dbo.sanitasi.semester_id = (
+              SELECT MAX(dbo.sanitasi.semester_id)
+                FROM dbo.sanitasi
+               WHERE dbo.sanitasi."Soft_delete" = 0
+               [[AND {{semester_sanitasi}}]]
+            )
+      GROUP BY 1
+      ORDER BY 2 DESC
+  - key: Q-SAR-08
+    name: 10 Jenis Alat Terbanyak
+    tab: sarana-prasarana
+    collection: Dashboard Publik — Kartu
+    display: row
+    description: Sepuluh jenis sarana alat dengan jumlah unit terbanyak pada sekolah aktif.
+    layout: {row: 24, col: 0, w: 24, h: 10}
+    filters:
+      - {tag: desa, parameter: p-desa, label: Desa, field: {schema: dbo, table: sekolah, column: desa_kelurahan}}
+      - {tag: jenjang, parameter: p-jenjang, label: Jenjang, field: {schema: ref, table: bentuk_pendidikan, column: nama}}
+      - {tag: kecamatan, parameter: p-kecamatan, label: Kecamatan, field: {schema: ref, table: mst_wilayah, column: nama}}
+      - {tag: status_sekolah, parameter: p-status, label: Status Sekolah, field: {schema: dbo, table: sekolah, column: status_sekolah}}
+    expect:
+      rows: 10
+    visualization_settings:
+      graph.dimensions:
+        - jenis_alat
+      graph.colors:
+        - '#082A4F'
+        - '#F2A03D'
+        - '#7D6AA8'
+        - '#4CAF93'
+      graph.metrics:
+        - jumlah_unit
+    sql: |-
+      WITH sekolah_dim AS (
+        SELECT
+          dbo.sekolah.sekolah_id,
+          dbo.sekolah.npsn,
+          dbo.sekolah.nama AS nama_sekolah,
+          ref.mst_wilayah.nama AS kecamatan,
+          dbo.sekolah.desa_kelurahan AS desa,
+          ref.bentuk_pendidikan.nama AS jenjang,
+          CASE dbo.sekolah.status_sekolah WHEN 1 THEN 'Negeri' ELSE 'Swasta' END AS status_sekolah,
+          COALESCE(ref.status_kepemilikan.nama, 'Tidak diketahui') AS kepemilikan
+        FROM dbo.sekolah
+        JOIN ref.mst_wilayah
+          ON ref.mst_wilayah.kode_wilayah = COALESCE(
+               (SELECT CASE WHEN w.id_level_wilayah = 4 THEN w.mst_kode_wilayah ELSE w.kode_wilayah END
+                  FROM ref.mst_wilayah w
+                 WHERE w.kode_wilayah = dbo.sekolah.kode_wilayah),
+               dbo.sekolah.kode_wilayah)
+        JOIN ref.bentuk_pendidikan
+          ON ref.bentuk_pendidikan.bentuk_pendidikan_id = dbo.sekolah.bentuk_pendidikan_id
+        LEFT JOIN ref.status_kepemilikan
+          ON ref.status_kepemilikan.status_kepemilikan_id = dbo.sekolah.status_kepemilikan_id
+        WHERE dbo.sekolah.keaktifan = 1
+          AND dbo.sekolah."Soft_delete" = 0
+        [[AND {{kecamatan}}]]
+        [[AND {{desa}}]]
+        [[AND {{jenjang}}]]
+        [[AND {{status_sekolah}}]]
+      )
+      SELECT ref.jenis_sarana.nama AS jenis_alat, COUNT(*) AS jumlah_unit
+      FROM dbo.alat
+      JOIN sekolah_dim ON sekolah_dim.sekolah_id = dbo.alat.sekolah_id
+      JOIN ref.jenis_sarana ON ref.jenis_sarana.jenis_sarana_id = dbo.alat.jenis_sarana_id
+      WHERE dbo.alat."Soft_delete" = 0
+      GROUP BY 1
+      ORDER BY 2 DESC
+      LIMIT 10

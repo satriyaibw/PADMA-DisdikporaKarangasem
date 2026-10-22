@@ -1,0 +1,137 @@
+# GENERATED oleh tools/export.py -- jangan diedit tangan tanpa menjalankan
+# `python3 tools/validate.py` sesudahnya.
+#
+# Sumber kebenaran dashboard publik Disdikpora Karangasem. Semua rujukan
+# memakai NAMA (database, collection, kartu) dan {schema, table, column},
+# bukan id numerik Metabase, supaya bisa diterapkan di instance lain.
+#
+# Menerapkan: python3 tools/apply.py --dry-run  lalu  python3 tools/apply.py
+
+dashboard:
+  database: backbone_client
+  name: Public
+  description: Dashboard publik untuk data pendidikan agregat
+  width: fixed
+  auto_apply_filters: true
+  public_link: true
+tabs:
+  - key: eksekutif
+    name: Eksekutif
+  - key: sekolah
+    name: Sekolah
+  - key: rombel
+    name: Rombel
+  - key: peserta-didik
+    name: Peserta Didik
+  - key: ats
+    name: ATS
+  - key: sarana-prasarana
+    name: Sarana Prasarana
+parameters:
+  - key: p-kecamatan
+    name: Kecamatan
+    slug: kecamatan
+    type: string/=
+    multi: true
+    values:
+      from_card: filter-kecamatan
+      value_field: kecamatan
+  - key: p-desa
+    name: Desa/Kelurahan
+    slug: desa
+    type: string/=
+    multi: true
+    values:
+      from_card: filter-desa
+      value_field: desa
+  - key: p-jenjang
+    name: Jenjang Satuan Pendidikan
+    slug: jenjang
+    type: string/=
+    multi: true
+    values:
+      from_card: filter-jenjang
+      value_field: jenjang
+  - key: p-status
+    name: Status Sekolah
+    slug: status_sekolah
+    type: number/=
+    multi: true
+    values:
+      static_list:
+        - [1, Negeri]
+        - [2, Swasta]
+  - key: p-jenis-ptk
+    name: Jenis PTK
+    slug: jenis_ptk
+    type: string/=
+    multi: true
+    values:
+      from_card: filter-jenis-ptk
+      value_field: jenis_ptk
+  - key: p-jabatan-ptk
+    name: Jabatan PTK
+    slug: jabatan_ptk
+    type: string/=
+    multi: true
+    values:
+      from_card: filter-jabatan-ptk
+      value_field: jabatan_ptk
+  - key: p-jenjang-ats
+    name: Jenjang (ATS)
+    slug: jenjang_ats
+    type: string/=
+    multi: true
+    values:
+      from_card: filter-jenjang-ats
+      value_field: jenjang
+  - key: p-semester
+    name: Semester
+    slug: semester_sarana
+    type: string/=
+    multi: false
+    values:
+      static_list:
+        - ['20261', 2026/2027 Gasal]
+        - ['20252', 2025/2026 Genap]
+        - ['20251', 2025/2026 Gasal]
+        - ['20242', 2024/2025 Genap]
+        - ['20241', 2024/2025 Gasal]
+        - ['20232', 2023/2024 Genap]
+        - ['20231', 2023/2024 Gasal]
+        - ['20222', 2022/2023 Genap]
+        - ['20221', 2022/2023 Gasal]
+        - ['20212', 2021/2022 Genap]
+        - ['20211', 2021/2022 Gasal]
+        - ['20202', 2020/2021 Genap]
+        - ['20201', 2020/2021 Gasal]
+        - ['20192', 2019/2020 Genap]
+        - ['20191', 2019/2020 Gasal]
+        - ['20182', 2018/2019 Genap]
+        - ['20181', 2018/2019 Gasal]
+        - ['20172', 2017/2018 Genap]
+        - ['20171', 2017/2018 Gasal]
+        - ['20162', 2016/2017 Genap]
+        - ['20161', 2016/2017 Gasal]
+        - ['20152', 2015/2016 Genap]
+        - ['20151', 2015/2016 Gasal]
+        - ['20142', 2014/2015 Genap]
+        - ['20141', 2014/2015 Gasal]
+        - ['20132', 2013/2014 Genap]
+  - key: p-semester-ats
+    name: Semester (ATS)
+    slug: semester_ats
+    type: string/=
+    multi: false
+    values:
+      static_list:
+        - ['20252', 2025/2026 Genap]
+        - ['20251', 2025/2026 Gasal]
+        - ['20241', 2024/2025 Gasal]
+        - ['20232', 2023/2024 Genap]
+        - ['20231', 2023/2024 Gasal]
+        - ['20222', 2022/2023 Genap]
+        - ['20221', 2022/2023 Gasal]
+        - ['20212', 2021/2022 Genap]
+        - ['20211', 2021/2022 Gasal]
+        - ['20202', 2020/2021 Genap]
