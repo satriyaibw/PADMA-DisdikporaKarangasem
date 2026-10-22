@@ -1,7 +1,7 @@
 # Metabase Configuration — Dashboard IDs & Settings
 
 > **Fase 2 — Metabase** (Issue #3)
-> Terakhir update: 2026-10-21 (rebuild dashboard publik: 6 tab, 46 kartu)
+> Terakhir update: 2026-10-22 (filter Semester pada tab ATS & Sarana Prasarana; 6 tab, 46 kartu)
 
 ## Site URL
 
@@ -78,6 +78,8 @@ Exit code 0 = aman.
 | `p-jenis-ptk` | Jenis PTK | `string/=` | `ref.jenis_ptk.jenis_ptk` (2264) | — | Card `100` (3) |
 | `p-jabatan-ptk` | Jabatan PTK | `string/=` | `ref.jabatan_ptk.jabatan_ptk` (2072) | — | Card `101` (26) |
 | `p-jenjang-ats` | Jenjang (ATS) | `string/=` | — | `dbo.ats.jenjang_pendidikan` (1387) | Card `102` (6) |
+| `p-semester` | Semester | `string/=` | `dbo.ruang_longitudinal.semester_id` (1699), `dbo.sanitasi.semester_id` (1760) | — | Static list (26) |
+| `p-semester-ats` | Semester (ATS) | `string/=` | — | `dbo.ats.semester_id` (1411) | Static list (10) |
 
 `p-jenjang-ats` sengaja terpisah karena domain nilainya berbeda (`SD / sederajat`,
 `Paket A/B/C`, dst.). `p-kecamatan` dan `p-desa` dipakai bersama oleh tab sekolah dan tab ATS;
@@ -86,8 +88,58 @@ satu parameter dapat dipetakan ke dua field berbeda per kartu.
 > **Sumber nilai wajib ditetapkan.** Tanpa `values_source_type`, dropdown menarik nilai dari
 > seluruh isi field: `ref.mst_wilayah` berisi ribuan wilayah Indonesia dan `dbo.ats.kecamatan`
 > masih memuat nama dari luar Karangasem. Akibatnya dropdown menampilkan nama seperti
-> "Lembudud" atau "Pa Butal". Nilai kini diambil dari 6 kartu bantu (lihat di bawah), dan
-> Status memakai static list `Negeri = 1`, `Swasta = 2`.
+> "Lembudud" atau "Pa Butal". Nilai kini diambil dari 6 kartu bantu (lihat di bawah);
+> Status dan kedua filter Semester memakai static list.
+
+### Filter Semester (per tab)
+
+Hanya **2 dari 6 tab** yang datanya lintas periode, jadi filter semester dipasang per tab dan
+tidak dipaksakan seragam. Detail keputusan: `metabase_questions.md` §2.3, §3.1, §9.2.
+
+| Parameter | Tab tempat muncul | Kartu (card id) | Tag template | Field |
+|---|---|---|---|---|
+| `p-semester-ats` | ATS | `82`–`88` | `semester_ats` | `dbo.ats.semester_id` (1411) |
+| `p-semester` | Sarana Prasarana | `90`, `91`, `92` | `semester_ruang` | `dbo.ruang_longitudinal.semester_id` (1699) |
+| `p-semester` | Sarana Prasarana | `95` | `semester_sanitasi` | `dbo.sanitasi.semester_id` (1760) |
+
+Dua tag berbeda untuk satu parameter dashboard karena field filter harus menunjuk kolom yang ada
+pada `FROM` kartunya; memakai satu tag untuk dua tabel menghasilkan
+`missing FROM-clause entry for table "sanitasi"`. Kedua tag dipetakan ke `p-semester`, sehingga
+pengguna hanya melihat satu dropdown "Semester".
+
+Perilaku filter kosong (tidak ada nilai default):
+
+| Tab | Kosong | Diisi |
+|---|---|---|
+| ATS | semua 10 periode → **3.032** | satu periode, mis. `20232` → **1.827** |
+| Sarana Prasarana | semester terbaru yang ada data (**20261**) → 654 / 26,85 / 438 | mis. `20252` → Q-SAR-07 **436**, Q-SAR-02/03/04 kosong |
+
+Kartu yang tidak berperiode (Q-SAR-01/06/08) tidak dipetakan; kartu rombel/PD dipin ke
+`semester_acuan` (semester aktif bila sudah ada datanya, jika tidak `MAX(semester_id)` entitas).
+
+Nilai static list ditulis **`[nilai, label]`**: elemen pertama dikirim ke query, elemen kedua
+ditampilkan. Urutan terbalik membuat dropdown menampilkan kode mentah **dan** filter mengirim
+label sebagai nilai (`status_sekolah = 'Negeri'` → semua kartu error). `p-status` pernah memakai
+urutan terbalik dan sudah diperbaiki menjadi `[[1, "Negeri"], [2, "Swasta"]]`.
+
+Metabase hanya menampilkan parameter yang terpetakan ke dashcard pada **tab aktif**, sehingga
+"Semester (ATS)" tidak muncul di tab Sarana Prasarana dan sebaliknya.
+
+### Re-apply ke instance baru
+
+Perubahan kartu/parameter di atas hidup di instance Metabase, bukan di repo. Untuk instance baru
+atau hasil rebuild, jalankan (dari root repo, kredensial dibaca dari `dashboard-karangasem/.env`):
+
+```bash
+python3 scripts/metabase/apply-semester-filter.py --verify-only   # periksa drift
+python3 scripts/metabase/apply-semester-filter.py --dry-run       # pratinjau
+python3 scripts/metabase/apply-semester-filter.py                 # terapkan + verifikasi
+```
+
+Script bersifat idempoten, mencadangkan state lama ke `scripts/metabase/.backup/<timestamp>/`,
+lalu memverifikasi struktur **dan** menjalankan seluruh 46 dashcard lewat endpoint publik
+(semua harus `completed`). Payload ada di `scripts/metabase/semester-filter.sql.json`; sumber
+kebenarannya tetap `metabase_questions.md` §3.1/§3.4/§4.1/§6.
 
 ## Kartu Bantu Filter (6)
 
@@ -229,7 +281,12 @@ default 600 detik) dan halaman VIP mengirim `Cache-Control: no-store, private`.
 | Iframe putih setelah tunnel restart | `METABASE_SITE_URL` masih hostname tunnel lama | jalankan `scripts/tunnel/tunnel-up.sh`, lalu `vendor/bin/sail artisan config:clear` |
 | Filter Kecamatan tidak mengubah angka | mapping parameter tidak terpasang pada dashcard | cek `parameter_mappings` dashcard → `["dimension", ["template-tag", "kecamatan"]]` |
 | Kartu gagal "invalid reference to FROM-clause entry" | tabel yang difilter diberi alias di SQL | tulis `FROM dbo.sekolah` tanpa alias (field filter dikompilasi ke nama tabel fisik) |
-| Dropdown Status berisi 1/2 | display values belum dipasang | Admin → Data Model → `dbo.sekolah.status_sekolah` → `{"1":"Negeri","2":"Swasta"}` |
+| Dropdown Status berisi 1/2 | static list memakai urutan `[label, nilai]` | balik menjadi `[[1, "Negeri"], [2, "Swasta"]]`; lihat §Filter Semester |
+| Dropdown Semester menampilkan `20261`, bukan "2026/2027 Gasal" | urutan static list terbalik, atau halaman belum di-reload setelah parameter diubah | tulis `[["20261", "2026/2027 Gasal"], …]`, lalu muat ulang halaman |
+| Memilih filter Status/Semester membuat **semua** kartu error | static list mengirim label sebagai nilai (`status_sekolah = 'Negeri'`) | perbaiki urutan `[nilai, label]` |
+| Kartu Sarana Prasarana kosong setelah memilih semester lama | riwayat `dbo.ruang_longitudinal` baru 1 periode (20261); `dbo.sanitasi` 26 periode | pilih 20261, atau gunakan Q-SAR-07 untuk perbandingan antar semester |
+| Kartu scalar menampilkan teks **"batal"** | query mengembalikan satu baris `NULL` (mis. `AVG` tanpa baris) | tambahkan `HAVING COUNT(kolom) > 0` agar hasil kosong tampil sebagai keadaan kosong (Q-SAR-03) |
+| `PUT /api/dashboard/2/cards` gagal 500 | endpoint deprecated menghapus lalu menulis ulang dashcard tanpa `tabs` | pakai `PUT /api/dashboard/2` dengan `tabs` + seluruh `dashcards` |
 | Angka PD berbeda antar tab | satu kartu memakai basis anggota rombel, yang lain NISN | lihat §2 `metabase_questions.md`; jangan mencampur basis dalam satu pembagian |
 | Login VIP mendarat di `/admin` lalu 403 | Outdated `url.intended` di sesi | akses lagi dari `/login`; lihat `VipLoginController::intendedVipUrl` |
 | Panel admin menampilkan halaman penyiapan 2FA | Admin belum memasang authenticator | "Mulai penyiapan" → pindai QR → masukkan kode 6 digit |
