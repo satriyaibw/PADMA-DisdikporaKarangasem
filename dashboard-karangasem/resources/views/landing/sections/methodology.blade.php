@@ -48,7 +48,7 @@
                             <dd class="font-semibold text-slate-700">{{ $period }}</dd>
                         </div>
                         <div class="flex items-center justify-between gap-3">
-                            <dt class="text-slate-500">Terakhir diperbarui</dt>
+                            <dt class="text-slate-500">Data per</dt>
                             <dd class="font-semibold text-slate-700">{{ $updatedAtDisplay }}</dd>
                         </div>
                         <div class="flex items-center justify-between gap-3">

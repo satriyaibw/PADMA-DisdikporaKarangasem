@@ -9,11 +9,16 @@
 --   * Sekolah          : Soft_delete = 0 AND keaktifan = 1
 --   * Rombel           : Soft_delete = 0, jenis_rombel = 1 (Kelas), semester
 --                        terbaru (atau :semester)
---   * Peserta didik    : NISN unik valid 10 digit pada rombel Kelas terpilih
---   * PTK              : penugasan induk (ptk_induk = 1), tidak keluar, aktif
---                        minimal satu bulan semester atau TMT sejak awal
---                        bulan semester sampai tanggal snapshot
+--   * Peserta didik    : registrasi aktif (Soft_delete = 0, jenis_keluar_id
+--                        IS NULL) di sekolah aktif, NISN unik valid 10 digit
+--   * PTK              : penugasan induk (ptk_induk = 1), tidak keluar,
+--                        qc.vld_ptk.aktif = 1 di sekolah aktif
 --   * Kecamatan        : 8 kecamatan di ref.mst_wilayah (level 3)
+--
+-- Definisi peserta didik dan PTK sengaja disamakan dengan kartu dashboard
+-- publik (Q-EXE-03/Q-EXE-04) agar landing dan dashboard tidak menampilkan
+-- angka yang saling bertentangan. Pembanding berbasis rombel/aktif-semester
+-- tetap dihitung sebagai diagnostik di artifact review.
 --
 -- NISN hanya dibaca untuk deduplikasi. Output query tetap berupa agregat dan
 -- tidak memuat NISN, nama, NIK, atau data pribadi lain.
@@ -97,33 +102,36 @@ scoped_rombels AS MATERIALIZED (
     FROM scoped_all_rombels
     WHERE jenis_rombel = 1
 ),
-scoped_student_ids AS MATERIALIZED (
-    SELECT DISTINCT a.peserta_didik_id
-    FROM dbo.anggota_rombel a
-    JOIN scoped_rombels rb
-      ON rb.rombongan_belajar_id = a.rombongan_belajar_id
-    WHERE a."Soft_delete" = 0
+registrations AS MATERIALIZED (
+    SELECT DISTINCT
+        r.peserta_didik_id,
+        btrim(pd.nisn) AS nisn,
+        ss.kode_wilayah,
+        ss.kecamatan
+    FROM dbo.registrasi_peserta_didik r
+    JOIN dbo.peserta_didik pd
+      ON pd.peserta_didik_id = r.peserta_didik_id
+    JOIN scoped_schools ss
+      ON ss.sekolah_id = r.sekolah_id
+    WHERE r."Soft_delete" = 0
+      AND r.jenis_keluar_id IS NULL
 ),
 student_identity AS MATERIALIZED (
-    SELECT
-        si.peserta_didik_id,
-        btrim(pd.nisn) AS nisn
-    FROM scoped_student_ids si
-    LEFT JOIN dbo.peserta_didik pd
-      ON pd.peserta_didik_id = si.peserta_didik_id
+    -- Satu baris per peserta didik untuk menghitung kualitas NISN tanpa
+    -- menggandakan murid yang punya registrasi di lebih dari satu sekolah.
+    SELECT DISTINCT ON (peserta_didik_id)
+        peserta_didik_id,
+        nisn
+    FROM registrations
+    ORDER BY peserta_didik_id, nisn NULLS LAST
 ),
 scoped_students AS MATERIALIZED (
     SELECT DISTINCT
-        btrim(pd.nisn) AS nisn,
-        rb.kode_wilayah,
-        rb.kecamatan
-    FROM dbo.anggota_rombel a
-    JOIN scoped_rombels rb
-      ON rb.rombongan_belajar_id = a.rombongan_belajar_id
-    JOIN dbo.peserta_didik pd
-      ON pd.peserta_didik_id = a.peserta_didik_id
-    WHERE a."Soft_delete" = 0
-      AND btrim(pd.nisn) ~ '^[0-9]{10}$'
+        nisn,
+        kode_wilayah,
+        kecamatan
+    FROM registrations
+    WHERE nisn ~ '^[0-9]{10}$'
 ),
 nisn_quality AS MATERIALIZED (
     SELECT
@@ -207,15 +215,22 @@ scoped_ptk_base AS MATERIALIZED (
     FROM ptk_all
     WHERE ptk_induk = 1
 ),
-scoped_ptk AS MATERIALIZED (
+scoped_ptk_qc AS MATERIALIZED (
+    -- Definisi kartu dashboard Q-EXE-04: PTK induk dengan status aktif
+    -- qc.vld_ptk. Satu PTK dihitung sekali walau mengajar di beberapa sekolah.
     SELECT DISTINCT
-        ptk_id,
-        kode_wilayah,
-        kecamatan
-    FROM scoped_ptk_base
-    WHERE jenis_keluar_id IS NULL
-      AND tgl_ptk_keluar IS NULL
-      AND (active_semester OR tmt_semester_month)
+        pt.ptk_id,
+        ss.kode_wilayah,
+        ss.kecamatan
+    FROM dbo.ptk_terdaftar pt
+    JOIN qc.vld_ptk q
+      ON q.ptk_id = pt.ptk_id
+    JOIN scoped_schools ss
+      ON ss.sekolah_id = pt.sekolah_id
+    WHERE pt."Soft_delete" = 0
+      AND pt.jenis_keluar_id IS NULL
+      AND q.aktif = 1
+      AND pt.ptk_induk = 1
 ),
 ptk_quality AS MATERIALIZED (
     SELECT
@@ -267,11 +282,13 @@ ptk_no_induk_quality AS MATERIALIZED (
     FROM ptk_no_induk
 ),
 source_sync AS MATERIALIZED (
-    SELECT greatest(
-        (SELECT max(last_sync) FROM dbo.sekolah),
-        (SELECT max(last_sync) FROM dbo.rombongan_belajar),
-        (SELECT max(last_sync) FROM dbo.ptk_terdaftar)
-    ) AS last_sync
+    SELECT
+        greatest(
+            (SELECT max(last_sync) FROM dbo.sekolah),
+            (SELECT max(last_sync) FROM dbo.rombongan_belajar),
+            (SELECT max(last_sync) FROM dbo.ptk_terdaftar)
+        ) AS last_sync,
+        (SELECT max(run_finished_at) FROM sync.pull_log) AS pulled_at
 ),
 district_schools AS MATERIALIZED (
     SELECT
@@ -298,7 +315,7 @@ district_ptk AS MATERIALIZED (
     SELECT
         kode_wilayah,
         count(DISTINCT ptk_id)::bigint AS ptk
-    FROM scoped_ptk
+    FROM scoped_ptk_qc
     GROUP BY kode_wilayah
 ),
 district_counts AS MATERIALIZED (
@@ -337,14 +354,9 @@ SELECT json_build_object(
         'rombel_type', 'kelas',
         'rombel_types', json_build_array(1),
         'student_identity', 'nisn_valid_10',
-        'student_scope', 'kelas',
+        'student_scope', 'registrasi_aktif',
         'ptk_assignment', 'induk',
-        'ptk_active_rule', 'semester_or_tmt_since_month_start',
-        'ptk_tmt_from', (
-            SELECT to_char(date_trunc('month', tanggal_mulai)::date, 'YYYY-MM-DD')
-            FROM params
-        ),
-        'ptk_tmt_to', (SELECT to_char(snapshot_date, 'YYYY-MM-DD') FROM params),
+        'ptk_active_rule', 'qc_vld_ptk_aktif',
         'semester_id', (SELECT semester_id FROM params),
         'forms', (
             SELECT json_agg(
@@ -364,7 +376,7 @@ SELECT json_build_object(
         'active_schools', (SELECT count(*)::bigint FROM scoped_schools),
         'students', (SELECT count(DISTINCT nisn)::bigint FROM scoped_students),
         'rombels', (SELECT count(*)::bigint FROM scoped_rombels),
-        'ptk', (SELECT count(DISTINCT ptk_id)::bigint FROM scoped_ptk)
+        'ptk', (SELECT count(DISTINCT ptk_id)::bigint FROM scoped_ptk_qc)
     ),
     'districts', (
         SELECT json_agg(
@@ -399,15 +411,17 @@ SELECT json_build_object(
         'ptk_active_semester', (SELECT active_semester FROM ptk_quality),
         'ptk_active_semester_or_tmt', (SELECT active_semester_or_tmt FROM ptk_quality),
         'ptk_active_with_tmt_month', (SELECT active_with_tmt_month FROM ptk_quality),
+        'ptk_qc_active', (SELECT count(DISTINCT ptk_id)::bigint FROM scoped_ptk_qc),
         'ptk_no_induk_total', (SELECT total FROM ptk_no_induk_quality),
         'ptk_no_induk_active', (SELECT active_with_tmt_month FROM ptk_no_induk_quality)
     ),
     'sources', json_build_object(
         'last_sync', (SELECT last_sync FROM source_sync),
+        'pulled_at', (SELECT pulled_at FROM source_sync),
         'schools', 'dbo.sekolah',
         'rombels', 'dbo.rombongan_belajar',
-        'students', 'dbo.anggota_rombel + dbo.peserta_didik',
-        'ptk', 'dbo.ptk_terdaftar'
+        'students', 'dbo.registrasi_peserta_didik + dbo.peserta_didik',
+        'ptk', 'dbo.ptk_terdaftar + qc.vld_ptk'
     )
 ) AS snapshot;
 

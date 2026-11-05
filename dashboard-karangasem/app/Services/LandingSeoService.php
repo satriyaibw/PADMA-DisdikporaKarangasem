@@ -9,6 +9,7 @@ class LandingSeoService
     /**
      * Metadata untuk layout landing.
      *
+     * @param  array<string, mixed>|null  $snapshot
      * @return array{
      *     title: string,
      *     description: string,
@@ -21,7 +22,7 @@ class LandingSeoService
      *     updated_at: string
      * }
      */
-    public function meta(): array
+    public function meta(?array $snapshot = null): array
     {
         $meta = config('landing.meta');
 
@@ -36,7 +37,7 @@ class LandingSeoService
                 : 'noindex, nofollow, noarchive',
             'type' => 'website',
             'locale' => 'id_ID',
-            'updated_at' => $this->snapshots->updatedAtIso()
+            'updated_at' => $this->snapshots->updatedAtIso($snapshot)
                 ?? $meta['updated_at'],
         ];
     }
@@ -44,12 +45,13 @@ class LandingSeoService
     /**
      * Graph JSON-LD. Hanya berisi data konfigurasi; tidak ada query database.
      *
+     * @param  array<string, mixed>|null  $snapshot
      * @return array<string, mixed>
      */
-    public function schema(): array
+    public function schema(?array $snapshot = null): array
     {
         $home = $this->homeUrl();
-        $meta = $this->meta();
+        $meta = $this->meta($snapshot);
         $organization = config('landing.organization');
         $faq = config('landing.faq');
 

@@ -1,188 +1,200 @@
 # AGENTS.md — Dashboard Data Pendidikan Disdikpora Karangasem
 
-## Repository Structure
+## Layout
 
-```
-.
-├── dashboard-karangasem/     # Laravel 13 + Filament 5 application (main app)
-├── database/sql/             # DDL: metrics views, admin role, equivalence tests
-├── deploy/
-│   ├── backup/               # run-backup.sh, restore-drill.sh, lib.sh
-│   ├── cron/                 # crontab examples for scheduler + backup
-│   ├── metabase/             # docker-compose.yml for Metabase OSS v0.55.4
-│   └── nginx/                # reverse proxy configs (dashboard.conf, metabase.conf)
-├── docs/                     # runbook, security-checklist, UAT, landing-snapshot, etc.
-├── scripts/
-│   ├── landing-snapshot.sh   # landing page snapshot pipeline
-│   ├── metabase/
-│   │   └── iac/              # CARD AS CODE dashboard publik (YAML + export/apply/verify)
-│   └── tunnel/               # Cloudflare Quick Tunnel management
-│       ├── tunnel-up.sh      # starts tunnels, updates .env + Metabase site-url
-│       └── tunnel-down.sh    # stops tunnels, clears state
-├── .tunnel/                  # gitignored tunnel state (PIDs, logs, URLs)
-├── MasterPlan.md             # 7-phase global plan
-└── metabase_questions.md     # 46 kartu & 6 tab dashboard publik (SQL, filter, layout)
-```
+- `dashboard-karangasem/` — Laravel 13 + Filament 5 app (main). Read its nested `AGENTS.md` before editing PHP; it contains Laravel Boost, Sail, PHPUnit, and Pint rules. Its Sail-only rule is for local dev; production uses `docker exec` (see below).
+- `database/sql/` — metrics DDL, roles, equivalence tests; the landing snapshot SQL is in `dashboard-karangasem/database/sql/landing_snapshot.sql`.
+- `deploy/` — backup/restore, cron examples, Metabase compose, Nginx configs (dev + `*.prod.conf`).
+- `scripts/` — landing snapshot pipeline, backbone mirror sync, Metabase IaC, Cloudflare tunnels.
+- `docs/` — runbook, landing snapshot, security checklist, Metabase IDs, UAT.
+- `docker-compose.prod.yml` — production topology (app, app_db, Metabase, Metabase metadata DB, backbone mirror, Metabase proxy, named tunnel).
+- `MasterPlan.md`, `metabase_questions.md`, `README.md` — planning and dashboard catalog.
 
-## Critical Architecture Rules (Never Violate)
+## Runtime modes (read first)
+
+- **Local dev**: from `dashboard-karangasem/`, use `vendor/bin/sail ...`. Follow `dashboard-karangasem/AGENTS.md` for Laravel/PHPUnit/Pint rules.
+- **Production on this server**: root `docker-compose.prod.yml` + root `.env.prod`. Containers: `padma-app` (nginx + php-fpm + supervisor), `padma-pgsql` (`app_db`), `padma-metabase`, `padma-metabase-postgres`, `padma-backbone-postgres` (mirror), `padma-metabase-proxy`, `padma-cloudflared`.
+- Production bind-mounts the repo into `padma-app`; use `docker exec padma-app php artisan ...`, **not** Sail. Rebuilding the image is only needed for Dockerfile/Nginx/Supervisor changes.
+- Production OPcache has `opcache.validate_timestamps=0`. After PHP/composer/view changes, **restart `padma-app`** or the old code keeps serving. Snapshot JSON is read per request, so `landing-snapshot.sh apply` needs no restart.
+- Two env files: compose reads root `.env.prod`; Laravel reads `dashboard-karangasem/.env`. `APP_KEY` lives in the app `.env`; most runtime flags are injected by compose. Both are root-owned; `.env.prod` is mode 600 and gitignored — use `sudo` only when necessary and never print or copy secrets.
+- Production supervisor runs `schedule:work` and two `queue:work` workers inside `padma-app`. Do **not** add a duplicate host `schedule:run` cron in this mode.
+
+## Critical architecture rules
 
 | Rule | Reason |
-|------|--------|
-| **Laravel never queries `backbone_client`** | Separation from Pusdatin source data |
-| **Only Metabase touches `backbone_client`** with read-only `analis` role | Prevents accidental writes to education data |
-| **Public dashboard is defined in `scripts/metabase/iac/`**, not in the live instance | Reproducible on any machine; UI edits are overwritten by `apply.py` |
-| **`app_db` is separate from `backbone_client`** | `app_db` holds users, sessions, audit only |
-| **`METABASE_EMBEDDING_SECRET` must equal `MB_EMBEDDING_SECRET_KEY`** | JWT HS256 signing for signed embeds; mismatch breaks all embeds |
-| **Never touch `MB_ENCRYPTION_SECRET_KEY`** | Encrypts DB credentials in Metabase metadata; changing it breaks all connections |
-| **`METABASE_SITE_URL` (browser) ≠ `METABASE_INTERNAL_URL` (probe)** | Browser needs public hostname; `metabase:check-embedding` runs in Docker and needs internal service name |
-| **Public embed uses UUID, not numeric ID** | Metabase `/public/dashboard/{uuid}` only accepts `public_uuid`; numeric ID shows "Unauthenticated" |
+|---|---|
+| **Laravel never queries `backbone_client`** (source or mirror) | Separation from Pusdatin data; app only uses `app_db` |
+| **Only Metabase and `scripts/landing-snapshot.sh` read the mirror**, read-only (`analis`/`padma_ro`); only `scripts/backbone-mirror-sync.sh` refreshes it | Prevents accidental writes to education data |
+| **`padma-backbone-postgres` is a copy**, not the source | Source is BackboneQuery's `db-target` container and may be offline; the mirror keeps PADMA alive |
+| **Public dashboard is defined in `scripts/metabase/iac/`**, not the live instance | Reproducible; UI edits are overwritten by `apply.py` |
+| **`app_db` is separate from `backbone_client`** | `app_db` holds users, sessions, cache, queue, audit, permissions only |
+| **`METABASE_EMBEDDING_SECRET` must equal `MB_EMBEDDING_SECRET_KEY`** | JWT HS256 signing; mismatch breaks all embeds |
+| **Never touch `MB_ENCRYPTION_SECRET_KEY`** | Encrypts DB credentials in Metabase metadata; changing it breaks connections |
+| **`METABASE_SITE_URL` (browser) ≠ `METABASE_INTERNAL_URL` (probe)** | Browser needs public hostname; the Docker probe needs `http://metabase:3000` |
+| **Public embed uses UUID, not numeric ID** | `/public/dashboard/{uuid}` only accepts `public_uuid`; numeric ID shows "Unauthenticated" |
 
-## Developer Commands (Run from `dashboard-karangasem/`)
+## Commands
 
-### Setup
+### Local dev (from `dashboard-karangasem/`)
+
 ```bash
-cd dashboard-karangasem
 cp .env.example .env
-# Fill: ADMIN_EMAIL, ADMIN_PASSWORD (min 12 chars, upper+lower+digit),
-# METABASE_SITE_URL, METABASE_EMBEDDING_SECRET (32+ chars, identical to Metabase),
-# METABASE_PUBLIC_DASHBOARD_ID, METABASE_VIP_DASHBOARD_ID
 vendor/bin/sail up -d --build
+vendor/bin/sail artisan key:generate
 vendor/bin/sail artisan migrate --seed
 vendor/bin/sail npm install && vendor/bin/sail npm run build
+
+vendor/bin/sail artisan test --compact
+vendor/bin/sail artisan test --compact tests/Feature/LandingSnapshotTest.php
+vendor/bin/sail bin pint --dirty --format agent
+vendor/bin/sail composer audit
+vendor/bin/sail artisan security:scan-pii
+vendor/bin/sail artisan metabase:check-embedding
+vendor/bin/sail artisan schedule:list
 ```
 
-### Testing (Must Run Through Sail)
+- Full suite currently **~409 tests / 938 assertions** (Nov 2026); update this line when the suite changes.
+- Tests need a `testing` database owned by `app` and `DB_PASSWORD`. Create it once with `vendor/bin/sail exec pgsql psql -U app -d postgres -c 'CREATE DATABASE testing OWNER app;'`. `phpunit.xml` forces `DB_HOST=pgsql` and `DB_DATABASE=testing`, but deliberately does **not** set `DB_PASSWORD`; CI injects it.
+- If `vendor/bin/phpunit` or `vendor/bin/pint` is missing, the checkout was installed with `--no-dev`; use CI or a temporary `composer install` copy.
+- **Never run the test suite inside `padma-app` against the production database.** Docker env (`DB_DATABASE=app_db`, `APP_ENV=production`, etc.) can win over `phpunit.xml`; use CI or a temporary copy, or override every DB/env var explicitly. Docker env can also produce false failures.
+
+### Production (from repo root; prefix with `sudo` if `.env.prod` is not readable)
+
 ```bash
-vendor/bin/sail artisan test --compact              # Unit + Feature (expect ~402 tests, 927 assertions)
-vendor/bin/sail bin pint --format agent             # Fix code style (run after PHP changes)
-vendor/bin/sail composer audit                      # Dependency advisory check
-vendor/bin/sail artisan security:scan-pii           # PII scan (exit 0 = clean)
-vendor/bin/sail artisan metabase:check-embedding    # Validates embed config
-vendor/bin/sail artisan schedule:list               # Verify 4 scheduled jobs
+docker compose --env-file .env.prod -f docker-compose.prod.yml ps
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f app
+docker compose --env-file .env.prod -f docker-compose.prod.yml restart app
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build app
+docker exec padma-app php artisan migrate --force
+docker exec padma-app php artisan config:clear
+docker exec padma-app php artisan optimize:clear && docker exec padma-app php artisan optimize
+docker restart padma-app   # after PHP/composer/view changes (OPcache)
 ```
 
-### Key Env Variables (Testing vs Production)
+- Manual backup: `./deploy/backup/run-backup.sh`. In production set `APP_DB_CONTAINER=padma-pgsql` and `METABASE_DB_CONTAINER=padma-metabase-postgres` (the script defaults target the dev compose). Safe restore drill: `./deploy/backup/restore-drill.sh` (same container overrides).
+- Mirror sync: `./scripts/backbone-mirror-sync.sh`; status/verify with `--status` / `--verify`. Cron example: `deploy/cron/backbone-mirror-sync.cron`.
+- Dev Metabase restart: `docker compose -f deploy/metabase/docker-compose.yml restart metabase`. Production: use the root compose and service `metabase`.
+- Rotate embed secret: see `docs/runbook.md` §5.
+- VIP deactivate expired: `docker exec padma-app php artisan vip:deactivate-expired`.
+- Prune audit logs: `docker exec padma-app php artisan audit:prune --days=365`.
+- Start/stop dev Quick Tunnels: `./scripts/tunnel/tunnel-up.sh` / `./scripts/tunnel/tunnel-down.sh`.
 
-| Variable | Test Value | Production |
-|----------|------------|------------|
-| `CACHE_STORE` | `database` (required for TOTP lock) | `database` |
-| `SEO_INDEXABLE` | `false` | `true` (after domain final) |
-| `LANDING_ENABLED` | `true` | `true` |
-| `APP_DEBUG` | `true` | **`false` (mandatory)** |
-| `TRUSTED_PROXIES` | `127.0.0.1` | Real proxy IPs |
-| `METABASE_SITE_URL` | `http://localhost:3000` | Public HTTPS URL (tunnel/domain) |
-| `METABASE_INTERNAL_URL` | `http://metabase:3000` | Internal Docker hostname |
+### Landing snapshot (production)
 
-> `APP_DEBUG=true` in production leaks stack traces via `/up` health endpoint.
+The script default `BACKBONE_CONTAINER=backbone_client` is wrong on this server; always override:
 
-### Common Operations
+```bash
+BACKBONE_CONTAINER=padma-backbone-postgres \
+BACKBONE_DB_USER=padma_ro \
+BACKBONE_DB_NAME=backbone_client \
+./scripts/landing-snapshot.sh review
 
-| Task | Command |
-|------|---------|
-| Clear config cache after `.env` change | `vendor/bin/sail artisan config:clear` |
-| Restart app only | `vendor/bin/sail restart app` |
-| Restart Metabase | `docker compose -f ../deploy/metabase/docker-compose.yml restart metabase` |
-| Manual backup | `../deploy/backup/run-backup.sh` |
-| Restore drill (safe, throws away) | `../deploy/backup/restore-drill.sh` |
-| Rotate embed secret | See `docs/runbook.md` §5 |
-| VIP deactivate expired | `vendor/bin/sail artisan vip:deactivate-expired` |
-| Prune audit logs | `vendor/bin/sail artisan audit:prune --days=365` |
-| Start Cloudflare tunnels | `./scripts/tunnel/tunnel-up.sh` |
-| Stop Cloudflare tunnels | `./scripts/tunnel/tunnel-down.sh` |
-| Check dashboard grid layout | `python3 scripts/metabase/check-layout.py` (exit 0 = tidak ada sel bertumpuk) |
-| Lint dashboard spec (offline) | `python3 scripts/metabase/iac/tools/validate.py` |
-| Preview dashboard apply | `python3 scripts/metabase/iac/tools/apply.py --dry-run` |
-| Rebuild public dashboard | `python3 scripts/metabase/iac/tools/apply.py` |
-| Verify dashboard vs spec | `python3 scripts/metabase/iac/tools/verify.py` |
-| Re-export spec from instance | `python3 scripts/metabase/iac/tools/export.py` (or `--check` for drift) |
+./scripts/landing-snapshot.sh apply <hash>
+./scripts/landing-snapshot.sh verify --strict
+```
 
-### Scheduled Jobs (WITA / UTC+8)
+### Metabase dashboard IaC (from `scripts/metabase/iac/`)
 
-| Time | Job | Command |
-|------|-----|---------|
-| Every minute | Scheduler trigger | `php artisan schedule:run` |
-| 00:30 | Deactivate expired VIPs | `vip:deactivate-expired` |
-| 02:00 | Daily backup | `run-backup.sh` |
-| 03:00 | Prune audit >365 days | `audit:prune --days=365` |
-| Hourly | Check embed config | `metabase:check-embedding` |
-| Mon 05:00 | PII scan | `security:scan-pii` |
+```bash
+python3 tools/validate.py
+python3 tools/apply.py --dry-run
+python3 tools/apply.py
+python3 tools/verify.py
+python3 tools/export.py --check   # drift check
+```
 
-**Order matters:** 00:30 → 02:00 → 03:00 so backup reads before prune touches same tables.
+- Grid guard from repo root: `python3 scripts/metabase/check-layout.py` (pass `--dashboard <id>` for another dashboard).
+- Dashboard YAML `expect` values are snapshots of the data; after a pull they can go stale and `verify.py` may report `BELUM SESUAI` even when the SQL is correct. Update `expect` as a separate dashboard change, not as part of landing work.
+- Legacy semester-filter-only repair: `scripts/metabase/apply-semester-filter.py`. It does not create cards/tabs; use the IaC tools for rebuilds.
 
-### CI Pipeline (`.github/workflows/security.yml`)
+## Landing snapshot — non-obvious facts
 
-- Runs on push to `main`, `fase-*`, PRs, and weekly Mon 03:00 UTC
-- PHP 8.5, Postgres 18 (service container), Node 22
-- `composer install --no-scripts` → `npm ci` → `npm run build` → `php artisan test --compact` → `vendor/bin/pint --test`
-- `DB_PASSWORD=secret` injected via GitHub Actions env (not in repo)
-- `phpunit.xml` forces `DB_HOST=pgsql` mapped to `127.0.0.1` via `/etc/hosts`
+- `storage/app/landing/snapshot.json` is gitignored and read per request; landing does no DB query. **Never edit the JSON by hand.**
+- Pipeline: `review` (read-only query + artifact) → `apply <hash>` → `verify --strict`. Review artifacts are `storage/app/landing/review.json` and `review-*.md`.
+- Landing definitions must match dashboard Q-EXE-01..04:
+  - schools: `Soft_delete=0 AND keaktifan=1` in Karangasem (`kode_wilayah` prefix `2208`);
+  - rombel: `Soft_delete=0`, `jenis_rombel=1` (Kelas), latest semester;
+  - students: active `dbo.registrasi_peserta_didik` (`Soft_delete=0`, `jenis_keluar_id IS NULL`) at active schools, distinct valid 10-digit NISN;
+  - PTK: `dbo.ptk_terdaftar` (`Soft_delete=0`, `jenis_keluar_id IS NULL`) + `qc.vld_ptk.aktif=1`, `ptk_induk=1`, at active schools.
+- “Data per” = `sources.pulled_at` = `max(sync.pull_log.run_finished_at)`; fallback `sources.last_sync`, then `generated_at`. Staleness uses `review.applied_at`/`generated_at`, **not** row-level `last_sync`.
+- Landing shows only “Data per” (snapshot pull date); do not reintroduce a second “last updated” label.
+- SEO `dateModified`/`lastmod` use the snapshot date through `LandingSeoService`; do not fall back to `config/landing.php` when a valid snapshot exists.
+- `sync.pull_log` timestamps are local WITA even though the DB session is UTC; use them as-is.
+- Reference snapshot (data per 29 Oct 2026): **604 schools / 68.983 students / 3.482 rombels / 4.977 PTK**. Landing and dashboard must agree; if they differ, fix definitions, not the JSON.
+- If the snapshot is invalid or missing, landing falls back to `config/landing.php` and logs `Snapshot landing tidak valid dan diabaikan`; run `verify --strict` and inspect `storage/logs/laravel.log`.
 
-## Troubleshooting Quick Reference
+## Metabase public dashboard — key facts
 
-| Symptom | First Check |
-|---------|-------------|
-| White iframe / embed broken | `vendor/bin/sail artisan metabase:check-embedding` |
-| VIP accesses after expiry | `vendor/bin/sail artisan vip:deactivate-expired` then verify cron |
-| `/up` returns 500 | `grep 'Health check gagal' storage/logs/laravel.log` |
-| `.env` changes ignored | `vendor/bin/sail artisan config:clear` |
-| Landing redirects to `/dashboard` | `LANDING_ENABLED=false` — set `true` then `optimize:clear && optimize` |
-| Canonical shows localhost/tunnel | `APP_URL` not set to final domain |
-| Landing not indexed | `SEO_INDEXABLE=false` or static `robots.txt` in Nginx |
-| Scheduler not running | `crontab -l` — ensure `schedule:run` every minute |
-| Admin MFA loop | Complete TOTP setup (QR + 6-digit code) |
-| Card overlaps footer | Grid cells overlap — run `python3 scripts/metabase/check-layout.py`, fix `row`/`col` |
-| Old dashboard layout after card change | Full reload (Ctrl+Shift+R); bump `ASSET_VERSION` then `config:cache` |
-| Backup fails | `tail -n 20 storage/logs/backup.log` |
+- Dashboard `2`; public UUID **`791f4341-b548-4669-bdeb-92bc3573e447`** (verify with `SELECT public_uuid FROM report_dashboard WHERE id = 2;`). 6 tabs, 46 cards + 6 helper cards for dropdowns.
+- VIP currently reuses dashboard `2`; do not assume a separate VIP dashboard exists. Check `docs/metabase-ids.md`.
+- Source of truth: `scripts/metabase/iac/dashboard.public.yaml` + `cards/*.yaml`. No numeric Metabase IDs in YAML: fields are `{schema, table, column}`, cards/collections/dashboard by name, resolved at apply time.
+- Rebuild workflow: `validate.py` → `apply.py --dry-run` → `apply.py` → `verify.py`. It is idempotent (second run reports `Total perubahan: 0`) and prints `METABASE_PUBLIC_DASHBOARD_ID/UUID` for `.env`.
+- Two card names are intentionally duplicated (`Total Rombel Aktif (Kelas)` = Q-EXE-02/Q-ROM-01; `Total Peserta Didik Aktif` = Q-EXE-03/Q-PD-01). Card identity = dashboard slot `(tab, name)`, then unique name, then identical SQL — never name alone.
+- Layout: `row` is cumulative and declared cells must not overlap. `apply.py` refuses overlap; `check-layout.py` verifies. Metabase reflows collisions at render time, but footer height uses declared rows, so overlaps paint over “Didukung oleh Metabase”.
+- Static list values must be `[value, label]` order; reversed order breaks filtering and shows raw codes.
+- Use native dimension field filters with optional `[[AND {{tag}}]]` blocks. Cleared parameters are sent as `null`; text-variable filters then fail with “Parameter yang diperlukan hilang”.
+- `PUT /api/dashboard/{id}/cards` is deprecated and fails 500 without `tabs`. Use `PUT /api/dashboard/{id}` with `name`, `parameters`, `tabs`, `dashcards` (full document).
+- Semester filters are per-tab, not global (ATS and Sarana Prasarana); the other tabs pin to a `semester_acuan` CTE.
+- Quick Tunnel dev: do not pin `MB_SITE_URL` in `deploy/metabase/.env`; `tunnel-up.sh` sets it via API. Production sets it from `.env.prod`/compose.
 
-## Documentation References
+## Scheduled jobs (WITA / UTC+8)
+
+- Production compose: supervisor in `padma-app` runs `schedule:work` + two queue workers. Do not add a host `schedule:run` cron in this mode.
+- Host-based deployment only: install `deploy/cron/dashboard-schedule.cron` (example; runs `schedule:run` every minute).
+- Laravel schedule: 00:30 `vip:deactivate-expired`; 03:00 `audit:prune --days=365`; hourly `metabase:check-embedding`; Mon 05:00 `security:scan-pii`.
+- Host cron examples: 02:00 backup (`deploy/cron/dashboard-backup.cron`); mirror sync 03:10, 06:40, 09:10, 15:10, 21:10 (`deploy/cron/backbone-mirror-sync.cron`, after the Pusdatin pull, usually 02:00).
+- Order matters: backup 02:00 before prune 03:00; mirror sync after the source pull.
+
+## CI (`.github/workflows/security.yml`)
+
+- `dependency-audit`: PHP 8.5, `composer install --no-scripts`, `composer audit --locked`; uploads the report on failure.
+- `tests`: PHP 8.5, Postgres 18 service, Node 22; creates the `testing` database, maps `pgsql` to `127.0.0.1`, injects `DB_PASSWORD=secret`; runs `php artisan test --compact` then `vendor/bin/pint --test`.
+- `metabase-iac`: Python 3.12, `pip install -r requirements.txt`, `python3 tools/validate.py`.
+- CI is the authoritative full-suite run when the production checkout lacks dev dependencies.
+
+## Troubleshooting
+
+| Symptom | First check |
+|---|---|
+| PHP change not visible in production | `docker restart padma-app` (OPcache `validate_timestamps=0`) |
+| Landing date/numbers stale | `./scripts/backbone-mirror-sync.sh --status`; check `sync.pull_log`; run landing `review`/`apply` |
+| Landing shows config fallback date | Snapshot invalid/missing; grep `Snapshot landing` in `storage/logs/laravel.log`; run `verify --strict` |
+| Dashboard data stale | Mirror sync status; run `./scripts/backbone-mirror-sync.sh` |
+| White iframe / embed broken | `docker exec padma-app php artisan metabase:check-embedding` |
+| VIP accesses after expiry | `docker exec padma-app php artisan vip:deactivate-expired`; check supervisor |
+| `/up` returns 500 | `grep 'Health check gagal' dashboard-karangasem/storage/logs/laravel.log` |
+| `.env` changes ignored | `docker exec padma-app php artisan config:clear` (or `optimize:clear && optimize`) |
+| Landing redirects to `/dashboard` | `LANDING_ENABLED=false`; set `true`, then `optimize:clear && optimize` |
+| Landing not indexed | `SEO_INDEXABLE=false`, or a static Nginx location intercepting robots/sitemap |
+| Card overlaps footer | `python3 scripts/metabase/check-layout.py`; fix `row`/`col` |
+| Old dashboard layout after card change | Full reload; bump `ASSET_VERSION`, then `config:cache` |
+| Backup fails | `tail -n 20 dashboard-karangasem/storage/logs/backup.log` |
+
+## Conventions
+
+- PHP 8.5, Laravel 13.17, Filament 5, PostgreSQL 16 (mirror) / 18 (`app_db`), Metabase OSS v0.55.4, Node 22, Vite 8, Tailwind 4.
+- `CACHE_STORE=database` is required for the TOTP replay guard; don't switch production/tests to `array`.
+- Production TLS terminates at Cloudflare; compose sets `APP_DEBUG=false`, `FORCE_HTTPS=false`, `HSTS_ENABLED=false`, `SESSION_SECURE_COOKIE=false`. Don't flip these without testing the tunnel.
+- Admin actions must go through the Filament panel; direct SQL bypasses audit observers.
+- `robots.txt` and `sitemap.xml` are dynamic Laravel routes; never add static Nginx locations for them.
+- PII scanner is fail-closed; false positives on reference-table `nama` columns are human-reviewed, not silently ignored.
+- Quick Tunnels are dev-only and ephemeral; production uses the named tunnel: `https://padma.disdikkarangasem-lab.my.id` (app) and `https://metabase-padma.disdikkarangasem-lab.my.id` (embed proxy). Metabase admin stays on `127.0.0.1:3100` and is never exposed directly.
+
+## References
 
 | File | Purpose |
-|------|---------|
-| `docs/runbook.md` | Full operational runbook (restart, backup, incidents, contacts) |
-| `docs/landing-snapshot.md` | Landing page snapshot pipeline (review/apply/verify) |
-| `docs/security-checklist.md` | Phase 5 security verification checklist |
-| `docs/metabase-ids.md` | Dashboard IDs, embed config, secret rotation |
-| `docs/uat.md` | Manual QA scenarios (T9, T10 not automatable) |
-| `deploy/backup/README.md` | Backup/restore drill usage |
-| `scripts/tunnel/tunnel-up.sh` | Quick Tunnel startup (updates .env + Metabase site-url via API) |
-| `scripts/tunnel/tunnel-down.sh` | Quick Tunnel shutdown |
-| `metabase_questions.md` | 46 kartu & 6 tab dashboard publik (SQL, filter, layout) |
-| `scripts/metabase/iac/README.md` | Card as code: prasyarat, 4 perintah, aturan, troubleshooting |
-
-## Metabase Dashboard Publik — Key Facts
-
-- **Dashboard ID**: `2` (public UUID: `a5a63c98-29d1-4f69-b430-062b23f58888`)
-- **Database**: `backbone_client` (id `2`, role `analis`, read-only)
-- **Tabs**: 6 (Eksekutif, Sekolah, Rombel, Peserta Didik, ATS, Sarana Prasarana)
-- **Cards**: 46 native SQL (8/8/7/8/7/8 per tab)
-- **Filter semester**: per-tab, not global
-  - **ATS tab**: `p-semester-ats` → `semester_ats` (field 1411), 10 periods, default = ALL (3,032)
-  - **Sarana Prasarana**: `p-semester` → `semester_ruang` (1699) + `semester_sanitasi` (1760), 26 periods, default = latest with data (20261)
-  - Other 4 tabs: no filter; cards pinned to `semester_acuan` CTE (active semester if data exists, else MAX)
-- **Static list values** must be `[value, label]` order (e.g., `["20261", "2026/2027 Gasal"]`) — reversed order breaks filtering AND shows raw codes
-- **Parameter mapping**: `PUT /api/dashboard/2` with full `tabs` + `dashcards` (per-dashcard endpoint deprecated, requires tabs)
-- **Layout check**: `python3 scripts/metabase/check-layout.py` (exit 0 = no overlapping cells)
-- **Source of truth**: `scripts/metabase/iac/` — `dashboard.public.yaml` + `cards/*.yaml`. No numeric Metabase ids in YAML: fields are `{schema, table, column}`, cards/collections/dashboard by name, resolved at apply time (`tools/resolver.py`). See `scripts/metabase/iac/README.md`.
-- **Rebuild on another machine**: `validate.py` → `apply.py --dry-run` → `apply.py` → `verify.py` (idempotent; second run reports `Total perubahan: 0`; prints `METABASE_PUBLIC_DASHBOARD_ID/UUID` for `.env`)
-- **Two card names are intentionally duplicated** (`Total Rombel Aktif (Kelas)` = Q-EXE-02/Q-ROM-01, `Total Peserta Didik Aktif` = Q-EXE-03/Q-PD-01). Card identity = dashboard slot `(tab, name)`, then unique name, then identical SQL — never name alone
-- **`apply.py` refuses to run when grid cells overlap** (`--force` override exists but is never appropriate in production)
-- **Legacy quick-fix**: `python3 scripts/metabase/apply-semester-filter.py` still works for semester-filter-only repairs (payload: `semester-filter.sql.json`, backup to `scripts/metabase/.backup/`), but it does not create cards/tabs/dashboard — use the IaC tools for rebuilds
-
-## Project-Specific Conventions
-
-- **PHP 8.5**, **Laravel 13.17**, **Filament 5**, **PostgreSQL 16/18**
-- Use `vendor/bin/sail` prefix for ALL commands (PHP, Artisan, Composer, Node, NPM)
-- Tests use `database` cache store (not `array`) to properly test TOTP mutex
-- Public embed requires `METABASE_PUBLIC_DASHBOARD_UUID` (UUID, not numeric ID)
-- `robots.txt` and `sitemap.xml` are dynamic Laravel routes — **no static Nginx locations**
-- Landing page stats are snapshotted JSON (`storage/app/landing/snapshot.json`), not live queries
-- PII scanner is fail-closed; false positives on reference table `nama` columns are human-reviewed, not ignored
-- Admin actions **must** go through Filament panel — direct SQL bypasses audit observers
-- **Quick Tunnels are ephemeral** — hostname changes on every start; `tunnel-up.sh` rewrites `.env` + Metabase `site-url` via API
-- Metabase `MB_SITE_URL` must NOT be pinned in `deploy/metabase/.env` — let `tunnel-up.sh` set it via API
-- **Metabase dashcards created via API must use cumulative grid rows**: `row = previous row + previous size_y` (e.g. 0 and 6). Sequential indices (0, 1, 2) shrink the computed grid height, so cards overflow their container and paint over the "Didukung oleh Metabase" footer — the footer sits in normal flow, not fixed
-- **Declared grid cells must not overlap** (same `col` span + `row` range). Metabase reflows colliding cards downward at render time, but the dashboard height (footer position) still uses the declared `row`s, so content grows taller than its container and the last card paints over the footer. Verify per tab: `max(row + size_y)` of the declared layout must equal the rendered content height. Real case: Sarpras had SAR-07 at `row 12 col 12` over SAR-04 (`row 8–16 col 12`) → footer covered by 162 px; fixed with SAR-05 `12×12`, SAR-07 `row 16`, SAR-08 `row 24`
-- Dashboard wrappers (`public.dashboard`, `vip.dashboard`) use a flex-column single-viewport layout (`body` flex, `header` `flex: 0 0 auto`, `iframe` `flex: 1 1 auto; min-height: 0`). Do not reintroduce `height: calc(100vh - Xrem)` — header height varies on small screens and causes double scrollbars
-- **Metabase field filter params sent as `null` when cleared** — text-variable filters fail with "Parameter yang diperlukan hilang". Use native dimension field filters (project convention) with optional `[[AND {{tag}}]]` blocks instead
-- **Metabase static list values**: write as `[[value, label]]` — element 1 = sent to query, element 2 = displayed. Reversed order breaks filtering silently
-- **Metabase `PUT /api/dashboard/{id}/cards` is deprecated** and fails 500 without `tabs` in payload. Use `PUT /api/dashboard/{id}` with `name`, `parameters`, `tabs`, `dashcards` (full document)
+|---|---|
+| `dashboard-karangasem/AGENTS.md` | Laravel Boost, Sail, PHPUnit, Pint, and PHP conventions |
+| `README.md` | Project overview and user-facing setup; test counts may lag the suite |
+| `MasterPlan.md` | 7-phase global plan and database map |
+| `docs/runbook.md` | Restart, backup, secret rotation, incidents, contacts |
+| `docs/landing-snapshot.md` | Landing snapshot definitions and review/apply/verify flow |
+| `docs/metabase-ids.md` | Live dashboard IDs, embed config, secret rotation |
+| `docs/security-checklist.md` | Phase 5 security verification |
+| `docs/uat.md` | Manual QA scenarios |
+| `deploy/backup/README.md` | Backup and restore drill usage |
+| `scripts/metabase/iac/README.md` | Card-as-code prerequisites, commands, rules, troubleshooting |
+| `metabase_questions.md` | 46 dashboard cards, 6 tabs, SQL, filters, layout |
+| `docker-compose.prod.yml` | Production services and network topology |
+| `scripts/backbone-mirror-sync.sh` | Mirror refresh, `--status`, `--verify`, degraded mode |
+| `deploy/cron/backbone-mirror-sync.cron` | Mirror refresh schedule |

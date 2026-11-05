@@ -87,8 +87,6 @@ class LandingSnapshotTest extends TestCase
             'student_scope' => 'all',
             'ptk_assignment' => 'all',
             'ptk_active_rule' => 'semester_only',
-            'ptk_tmt_from' => '',
-            'ptk_tmt_to' => 'not-a-date',
         ];
 
         foreach ($mutations as $key => $value) {
@@ -100,6 +98,10 @@ class LandingSnapshotTest extends TestCase
                 "scope.{$key} tidak boleh lolos validasi."
             );
         }
+
+        $snapshot = $this->snapshotData();
+        $snapshot['sources']['pulled_at'] = 'not-a-date';
+        $this->assertNotEmpty($service->validate($snapshot));
     }
 
     public function test_review_does_not_apply_and_apply_requires_matching_hash(): void
@@ -153,10 +155,10 @@ class LandingSnapshotTest extends TestCase
             ->assertOk()
             ->assertSee('Satuan Pendidikan Aktif')
             ->assertSee('604')
-            ->assertSee('64.086')
+            ->assertSee('68.983')
             ->assertSee('3.482')
-            ->assertSee('4.044')
-            ->assertSee('6 Oktober 2026')
+            ->assertSee('4.977')
+            ->assertSee('29 Oktober 2026')
             ->assertSee('Semester Ganjil 2026/2027')
             ->assertDontSee('belum tersedia atau belum diverifikasi')
             ->assertDontSee('>843<', false);
@@ -182,8 +184,18 @@ class LandingSnapshotTest extends TestCase
         $this->assertSame('Semester Genap 2025/2026', $service->periodLabel($snapshot));
 
         $snapshot = $this->snapshotData();
-        $snapshot['sources']['last_sync'] = '2020-01-01T00:00:00';
+        $snapshot['review'] = ['applied_at' => now()->subDays(40)->toIso8601String()];
         $this->assertTrue($service->isStale($snapshot));
+
+        $snapshot = $this->snapshotData();
+        $snapshot['sources']['last_sync'] = '2020-01-01T00:00:00';
+        $snapshot['review'] = ['applied_at' => now()->subDays(5)->toIso8601String()];
+        $this->assertFalse($service->isStale($snapshot));
+        $this->assertSame('29 Oktober 2026', $service->updatedAtDisplay($snapshot));
+
+        $snapshot = $this->snapshotData();
+        unset($snapshot['sources']['pulled_at']);
+        $this->assertSame('27 Oktober 2026', $service->updatedAtDisplay($snapshot));
     }
 
     /**
@@ -206,11 +218,9 @@ class LandingSnapshotTest extends TestCase
                 'rombel_type' => 'kelas',
                 'rombel_types' => [1],
                 'student_identity' => 'nisn_valid_10',
-                'student_scope' => 'kelas',
+                'student_scope' => 'registrasi_aktif',
                 'ptk_assignment' => 'induk',
-                'ptk_active_rule' => 'semester_or_tmt_since_month_start',
-                'ptk_tmt_from' => '2026-07-01',
-                'ptk_tmt_to' => '2026-10-20',
+                'ptk_active_rule' => 'qc_vld_ptk_aktif',
                 'semester_id' => '20261',
                 'forms' => [
                     ['id' => 1, 'name' => 'TK'],
@@ -220,48 +230,50 @@ class LandingSnapshotTest extends TestCase
             ],
             'cards' => [
                 'active_schools' => 604,
-                'students' => 64086,
+                'students' => 68983,
                 'rombels' => 3482,
-                'ptk' => 4044,
+                'ptk' => 4977,
             ],
             'districts' => [
-                ['code' => '220804', 'name' => 'Karangasem', 'schools' => 115, 'rombel' => 724, 'students' => 13967, 'ptk' => 859],
-                ['code' => '220808', 'name' => 'Kubu', 'schools' => 80, 'rombel' => 527, 'students' => 10715, 'ptk' => 657],
-                ['code' => '220805', 'name' => 'Abang', 'schools' => 94, 'rombel' => 539, 'students' => 10465, 'ptk' => 608],
-                ['code' => '220803', 'name' => 'Manggis', 'schools' => 77, 'rombel' => 412, 'students' => 6903, 'ptk' => 445],
-                ['code' => '220806', 'name' => 'Bebandem', 'schools' => 74, 'rombel' => 377, 'students' => 6569, 'ptk' => 428],
-                ['code' => '220801', 'name' => 'Rendang', 'schools' => 60, 'rombel' => 334, 'students' => 5594, 'ptk' => 399],
-                ['code' => '220807', 'name' => 'Selat', 'schools' => 60, 'rombel' => 318, 'students' => 5634, 'ptk' => 387],
-                ['code' => '220802', 'name' => 'Sidemen', 'schools' => 44, 'rombel' => 251, 'students' => 4245, 'ptk' => 261],
+                ['code' => '220804', 'name' => 'Karangasem', 'schools' => 115, 'rombel' => 724, 'students' => 15272, 'ptk' => 1138],
+                ['code' => '220808', 'name' => 'Kubu', 'schools' => 80, 'rombel' => 527, 'students' => 11450, 'ptk' => 762],
+                ['code' => '220805', 'name' => 'Abang', 'schools' => 94, 'rombel' => 539, 'students' => 11041, 'ptk' => 738],
+                ['code' => '220803', 'name' => 'Manggis', 'schools' => 77, 'rombel' => 412, 'students' => 7497, 'ptk' => 539],
+                ['code' => '220806', 'name' => 'Bebandem', 'schools' => 74, 'rombel' => 377, 'students' => 7040, 'ptk' => 575],
+                ['code' => '220801', 'name' => 'Rendang', 'schools' => 60, 'rombel' => 334, 'students' => 6124, 'ptk' => 478],
+                ['code' => '220807', 'name' => 'Selat', 'schools' => 60, 'rombel' => 318, 'students' => 6144, 'ptk' => 425],
+                ['code' => '220802', 'name' => 'Sidemen', 'schools' => 44, 'rombel' => 251, 'students' => 4444, 'ptk' => 322],
             ],
             'comparisons' => [
                 'all_schools' => 843,
                 'active_schools' => 604,
                 'schools_with_rombels' => 599,
-                'all_rombels_latest' => 5077,
+                'all_rombels_latest' => 5098,
                 'class_rombels_latest' => 3482,
-                'rombel_members' => 64600,
-                'students_by_id' => 64495,
-                'unique_students' => 64086,
-                'district_student_sum' => 64092,
-                'nisn_blank' => 406,
-                'nisn_invalid' => 0,
-                'nisn_valid_ids' => 64089,
-                'nisn_duplicate_values' => 3,
-                'nisn_duplicate_extra_ids' => 3,
-                'ptk_induk_total' => 4981,
-                'ptk_active_semester' => 4036,
-                'ptk_active_semester_or_tmt' => 4040,
-                'ptk_active_with_tmt_month' => 4044,
-                'ptk_no_induk_total' => 124,
+                'rombel_members' => 64621,
+                'students_by_id' => 70381,
+                'unique_students' => 68983,
+                'district_student_sum' => 69012,
+                'nisn_blank' => 1372,
+                'nisn_invalid' => 2,
+                'nisn_valid_ids' => 69007,
+                'nisn_duplicate_values' => 23,
+                'nisn_duplicate_extra_ids' => 24,
+                'ptk_induk_total' => 4977,
+                'ptk_active_semester' => 4033,
+                'ptk_active_semester_or_tmt' => 4037,
+                'ptk_active_with_tmt_month' => 4042,
+                'ptk_qc_active' => 4977,
+                'ptk_no_induk_total' => 129,
                 'ptk_no_induk_active' => 20,
             ],
             'sources' => [
-                'last_sync' => '2026-10-06T23:30:15',
+                'last_sync' => '2026-10-27T23:30:23.777',
+                'pulled_at' => '2026-10-29T10:00:54.499081',
                 'schools' => 'dbo.sekolah',
                 'rombels' => 'dbo.rombongan_belajar',
-                'students' => 'dbo.anggota_rombel + dbo.peserta_didik',
-                'ptk' => 'dbo.ptk_terdaftar',
+                'students' => 'dbo.registrasi_peserta_didik + dbo.peserta_didik',
+                'ptk' => 'dbo.ptk_terdaftar + qc.vld_ptk',
             ],
         ];
     }

@@ -208,14 +208,13 @@ class LandingSnapshotCommand extends Command
         $scope = $summary['scope'];
 
         $this->line('Periode : '.($summary['period'] ?? '-'));
-        $this->line('Sumber  : '.($summary['updated_at'] ?? '-'));
+        $this->line('Data per: '.($summary['updated_at'] ?? '-'));
         $this->line('Wilayah : '.($scope['region'] ?? '-').' ('.($scope['region_prefix'] ?? '-').')');
         $this->line('Sekolah : '.(($scope['school_active_only'] ?? false) ? 'aktif saja' : 'semua'));
         $this->line('Rombel  : '.(($scope['rombel_active_only'] ?? false) ? 'aktif saja' : 'semua')
             .' (jenis '.($scope['rombel_type'] ?? '-').')');
         $this->line('PD      : '.($scope['student_identity'] ?? '-').' pada '.($scope['student_scope'] ?? '-'));
-        $this->line('PTK     : '.($scope['ptk_assignment'] ?? '-').', '.($scope['ptk_active_rule'] ?? '-')
-            .' (TMT '.($scope['ptk_tmt_from'] ?? '-').' s.d. '.($scope['ptk_tmt_to'] ?? '-').')');
+        $this->line('PTK     : '.($scope['ptk_assignment'] ?? '-').', '.($scope['ptk_active_rule'] ?? '-'));
         $this->line('Bentuk  : '.collect($scope['forms'] ?? [])->pluck('name')->implode(', '));
         $this->newLine();
 
@@ -223,9 +222,9 @@ class LandingSnapshotCommand extends Command
             ['Kartu', 'Nilai'],
             [
                 ['Satuan pendidikan aktif', number_format((int) $cards['active_schools'], 0, ',', '.')],
-                ['Peserta didik unik (NISN, Kelas)', number_format((int) $cards['students'], 0, ',', '.')],
+                ['Peserta didik unik (NISN, registrasi aktif)', number_format((int) $cards['students'], 0, ',', '.')],
                 ['Rombongan belajar (Kelas)', number_format((int) $cards['rombels'], 0, ',', '.')],
-                ['PTK aktif (induk)', number_format((int) $cards['ptk'], 0, ',', '.')],
+                ['PTK aktif (induk, status Dapodik)', number_format((int) $cards['ptk'], 0, ',', '.')],
             ]
         );
 
@@ -260,16 +259,17 @@ class LandingSnapshotCommand extends Command
             'Semua jenis rombel' => $comparisons['all_rombels_latest'] ?? null,
             'Rombel Kelas' => $comparisons['class_rombels_latest'] ?? null,
             'Anggota rombel Kelas' => $comparisons['rombel_members'] ?? null,
-            'Peserta didik berdasarkan ID' => $comparisons['students_by_id'] ?? null,
-            'Peserta didik unik NISN' => $comparisons['unique_students'] ?? null,
+            'Peserta didik berdasarkan ID (registrasi aktif)' => $comparisons['students_by_id'] ?? null,
+            'Peserta didik unik NISN (registrasi aktif)' => $comparisons['unique_students'] ?? null,
             'Jumlah peserta didik per kecamatan' => $comparisons['district_student_sum'] ?? null,
             'NISN kosong' => $comparisons['nisn_blank'] ?? null,
             'NISN tidak valid' => $comparisons['nisn_invalid'] ?? null,
             'NISN ganda (nilai)' => $comparisons['nisn_duplicate_values'] ?? null,
             'PTK induk' => $comparisons['ptk_induk_total'] ?? null,
-            'PTK aktif semester' => $comparisons['ptk_active_semester'] ?? null,
-            'PTK aktif semester + TMT' => $comparisons['ptk_active_semester_or_tmt'] ?? null,
-            'PTK aktif + TMT sejak awal bulan semester' => $comparisons['ptk_active_with_tmt_month'] ?? null,
+            'PTK aktif (qc.vld_ptk)' => $comparisons['ptk_qc_active'] ?? null,
+            'PTK aktif semester (diagnostik)' => $comparisons['ptk_active_semester'] ?? null,
+            'PTK aktif semester + TMT (diagnostik)' => $comparisons['ptk_active_semester_or_tmt'] ?? null,
+            'PTK aktif + TMT sejak awal bulan semester (diagnostik)' => $comparisons['ptk_active_with_tmt_month'] ?? null,
             'PTK non-induk' => $comparisons['ptk_no_induk_total'] ?? null,
             'PTK non-induk aktif' => $comparisons['ptk_no_induk_active'] ?? null,
         ];
@@ -297,7 +297,7 @@ class LandingSnapshotCommand extends Command
             '',
             '- **Query hash:** `'.$summary['hash'].'`',
             '- **Snapshot dibuat:** '.($summary['generated_at'] ?? '-'),
-            '- **Sumber terakhir sinkron:** '.($summary['updated_at'] ?? '-'),
+            '- **Data per:** '.($summary['updated_at'] ?? '-'),
             '- **Periode:** '.($summary['period'] ?? '-'),
             '- **Wilayah:** '.($scope['region'] ?? '-').' (`'.($scope['region_prefix'] ?? '-').'`)',
             '- **Sekolah:** '.(($scope['school_active_only'] ?? false) ? 'aktif saja' : 'semua'),
@@ -306,8 +306,7 @@ class LandingSnapshotCommand extends Command
             '- **Peserta didik:** '.($scope['student_identity'] ?? '-')
                 .' pada '.($scope['student_scope'] ?? '-'),
             '- **PTK:** '.($scope['ptk_assignment'] ?? '-')
-                .', '.($scope['ptk_active_rule'] ?? '-')
-                .' (TMT '.($scope['ptk_tmt_from'] ?? '-').' s.d. '.($scope['ptk_tmt_to'] ?? '-').')',
+                .', '.($scope['ptk_active_rule'] ?? '-'),
             '- **Bentuk pendidikan:** '.collect($scope['forms'] ?? [])->pluck('name')->implode(', '),
             '',
             '## Kartu',
@@ -315,9 +314,9 @@ class LandingSnapshotCommand extends Command
             '| Kartu | Nilai |',
             '|---|---:|',
             '| Satuan pendidikan aktif | '.number_format((int) $summary['cards']['active_schools'], 0, ',', '.').' |',
-            '| Peserta didik unik (NISN, Kelas) | '.number_format((int) $summary['cards']['students'], 0, ',', '.').' |',
+            '| Peserta didik unik (NISN, registrasi aktif) | '.number_format((int) $summary['cards']['students'], 0, ',', '.').' |',
             '| Rombongan belajar (Kelas) | '.number_format((int) $summary['cards']['rombels'], 0, ',', '.').' |',
-            '| PTK aktif (induk) | '.number_format((int) $summary['cards']['ptk'], 0, ',', '.').' |',
+            '| PTK aktif (induk, status Dapodik) | '.number_format((int) $summary['cards']['ptk'], 0, ',', '.').' |',
             '',
             '## Pembanding',
             '',
@@ -349,7 +348,8 @@ class LandingSnapshotCommand extends Command
         $lines[] = '- [ ] Definisi sekolah aktif sudah sesuai kebijakan Dinas.';
         $lines[] = '- [ ] Rombel hanya jenis Kelas (`jenis_rombel=1`) pada semester terpilih.';
         $lines[] = '- [ ] Peserta didik memakai NISN valid 10 digit; NISN kosong, tidak valid, dan ganda sudah diperiksa.';
-        $lines[] = '- [ ] PTK memakai penugasan induk, status keluar, dan aturan aktif semester/TMT sejak awal bulan semester.';
+        $lines[] = '- [ ] PTK memakai penugasan induk, status keluar, dan `qc.vld_ptk.aktif = 1` (definisi dashboard).';
+        $lines[] = '- [ ] Pembanding PTK aktif semester/TMT hanya diagnostik, bukan angka kartu.';
         $lines[] = '- [ ] PTK non-induk pada pembanding sudah dipahami dan tidak termasuk kartu.';
         $lines[] = '- [ ] Cakupan bentuk pendidikan (TK/PAUD/SD/SMP/nonformal) sudah disetujui.';
         $lines[] = '- [ ] Jumlah kecamatan tepat 8 dan tidak ada wilayah yang hilang.';
