@@ -25,6 +25,7 @@ SQL_FILE="${APP_DIR}/database/sql/landing_snapshot.sql"
 REVIEW_JSON_REL="storage/app/landing/review.json"
 REVIEW_JSON="${APP_DIR}/${REVIEW_JSON_REL}"
 SAIL="${APP_DIR}/vendor/bin/sail"
+APP_CONTAINER="${PADMA_APP_CONTAINER:-padma-app}"
 
 CONTAINER="${BACKBONE_CONTAINER:-backbone_client}"
 DB_USER="${BACKBONE_DB_USER:-postgres}"
@@ -74,7 +75,6 @@ ensure_backbone() {
 
 run_query() {
     require_file "$SQL_FILE"
-    require_file "$SAIL"
     ensure_backbone
 
     mkdir -p "$(dirname "$REVIEW_JSON")"
@@ -99,8 +99,18 @@ run_query() {
 }
 
 run_artisan() {
-    require_file "$SAIL"
-    (cd "$APP_DIR" && "$SAIL" artisan landing:snapshot "$@")
+    # Dua mode:
+    #   - pengembangan lokal : lewat Laravel Sail (vendor/bin/sail)
+    #   - produksi (Docker)  : `docker exec` ke container aplikasi
+    # Deteksi otomatis agar skrip yang sama dipakai di kedua lingkungan.
+    if [[ -x "$SAIL" ]]; then
+        (cd "$APP_DIR" && "$SAIL" artisan landing:snapshot "$@")
+    elif command -v docker >/dev/null 2>&1 \
+        && docker inspect "$APP_CONTAINER" >/dev/null 2>&1; then
+        docker exec -i "$APP_CONTAINER" php artisan landing:snapshot "$@"
+    else
+        fail "Tidak menemukan Sail ($SAIL) maupun container '$APP_CONTAINER'."
+    fi
 }
 
 action="${1:-review}"

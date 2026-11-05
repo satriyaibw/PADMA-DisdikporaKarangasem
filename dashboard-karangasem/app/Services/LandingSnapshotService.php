@@ -198,16 +198,12 @@ class LandingSnapshotService
             $errors[] = 'scope.rombel_types harus memuat jenis_rombel 1 (Kelas).';
         } elseif (($scope['student_identity'] ?? null) !== 'nisn_valid_10') {
             $errors[] = 'scope.student_identity harus nisn_valid_10.';
-        } elseif (($scope['student_scope'] ?? null) !== 'kelas') {
-            $errors[] = 'scope.student_scope harus kelas.';
+        } elseif (($scope['student_scope'] ?? null) !== 'registrasi_aktif') {
+            $errors[] = 'scope.student_scope harus registrasi_aktif.';
         } elseif (($scope['ptk_assignment'] ?? null) !== 'induk') {
             $errors[] = 'scope.ptk_assignment harus induk.';
-        } elseif (($scope['ptk_active_rule'] ?? null) !== 'semester_or_tmt_since_month_start') {
-            $errors[] = 'scope.ptk_active_rule harus semester_or_tmt_since_month_start.';
-        } elseif (! preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($scope['ptk_tmt_from'] ?? ''))) {
-            $errors[] = 'scope.ptk_tmt_from harus tanggal YYYY-MM-DD.';
-        } elseif (! preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($scope['ptk_tmt_to'] ?? ''))) {
-            $errors[] = 'scope.ptk_tmt_to harus tanggal YYYY-MM-DD.';
+        } elseif (($scope['ptk_active_rule'] ?? null) !== 'qc_vld_ptk_aktif') {
+            $errors[] = 'scope.ptk_active_rule harus qc_vld_ptk_aktif.';
         }
 
         $lastSync = $snapshot['sources']['last_sync'] ?? null;
@@ -217,6 +213,16 @@ class LandingSnapshotService
                 CarbonImmutable::parse((string) $lastSync);
             } catch (Throwable) {
                 $errors[] = 'sources.last_sync bukan tanggal yang valid.';
+            }
+        }
+
+        $pulledAt = $snapshot['sources']['pulled_at'] ?? null;
+
+        if ($pulledAt !== null) {
+            try {
+                CarbonImmutable::parse((string) $pulledAt);
+            } catch (Throwable) {
+                $errors[] = 'sources.pulled_at bukan tanggal yang valid.';
             }
         }
 
@@ -332,7 +338,7 @@ class LandingSnapshotService
             1 => [
                 'label' => 'Peserta Didik',
                 'value' => (int) $cards['students'],
-                'note' => 'peserta didik unik (NISN valid 10 digit, kelas aktif)',
+                'note' => 'peserta didik unik (NISN valid 10 digit, registrasi aktif)',
             ],
             2 => [
                 'label' => 'Rombongan Belajar',
@@ -342,7 +348,7 @@ class LandingSnapshotService
             3 => [
                 'label' => 'Pendidik & Tenaga Kependidikan',
                 'value' => (int) $cards['ptk'],
-                'note' => 'PTK aktif dengan penugasan induk',
+                'note' => 'PTK aktif dengan penugasan induk (status Dapodik)',
             ],
         ];
 
@@ -402,13 +408,37 @@ class LandingSnapshotService
     }
 
     /**
-     * Tanggal sinkronisasi sumber data atau waktu snapshot dibuat.
+     * Tanggal data ditarik dari sumber (pull log), atau fallback ke
+     * last_sync baris dan waktu snapshot dibuat.
      *
      * @param  array<string, mixed>|null  $snapshot
      */
     public function updatedAtIso(?array $snapshot = null): ?string
     {
-        $value = $snapshot['sources']['last_sync']
+        $value = $snapshot['sources']['pulled_at']
+            ?? $snapshot['sources']['last_sync']
+            ?? $snapshot['generated_at']
+            ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse((string) $value)->toIso8601String();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Waktu snapshot landing terakhir diterapkan/dibuat.
+     *
+     * @param  array<string, mixed>|null  $snapshot
+     */
+    public function appliedAtIso(?array $snapshot = null): ?string
+    {
+        $value = $snapshot['review']['applied_at']
             ?? $snapshot['generated_at']
             ?? null;
 
@@ -461,7 +491,7 @@ class LandingSnapshotService
      */
     public function staleDays(?array $snapshot = null): ?int
     {
-        $iso = $this->updatedAtIso($snapshot);
+        $iso = $this->appliedAtIso($snapshot);
 
         if ($iso === null) {
             return null;

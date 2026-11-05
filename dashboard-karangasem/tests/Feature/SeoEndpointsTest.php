@@ -51,7 +51,10 @@ class SeoEndpointsTest extends TestCase
 
     public function test_sitemap_lists_the_landing_page_when_enabled(): void
     {
-        config(['seo.indexable' => true]);
+        config([
+            'seo.indexable' => true,
+            'landing_snapshot.path' => storage_path('app/testing/missing-snapshot.json'),
+        ]);
 
         $response = $this->get('/sitemap.xml');
 

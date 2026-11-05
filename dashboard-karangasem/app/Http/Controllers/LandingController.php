@@ -30,8 +30,8 @@ class LandingController extends Controller
 
         return response()
             ->view('landing.index', [
-                'meta' => $seo->meta(),
-                'schema' => $seo->schema(),
+                'meta' => $seo->meta($snapshot),
+                'schema' => $seo->schema($snapshot),
                 'stats' => $snapshots->stats($snapshot),
                 'districts' => $snapshots->districts($snapshot),
                 'faq' => config('landing.faq'),

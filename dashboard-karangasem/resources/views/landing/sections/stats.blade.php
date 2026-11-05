@@ -25,7 +25,7 @@
 
         <p class="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-relaxed text-slate-500">
             <x-ui.icon name="calendar" class="h-4 w-4 text-brand-600" />
-            <span>Sumber: Dapodik, diolah PADMA. {{ $period }}. Terakhir diperbarui {{ $updatedAtDisplay }}. Angka dapat berubah mengikuti pemutakhiran data.</span>
+            <span>Sumber: Dapodik, diolah PADMA. {{ $period }}. Data per {{ $updatedAtDisplay }}. Angka dapat berubah mengikuti pemutakhiran data.</span>
         </p>
     </div>
 </section>

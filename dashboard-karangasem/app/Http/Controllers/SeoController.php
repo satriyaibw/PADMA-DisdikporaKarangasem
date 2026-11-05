@@ -3,11 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Services\LandingSeoService;
+use App\Services\LandingSnapshotService;
 use Illuminate\Http\Response;
 
 class SeoController extends Controller
 {
-    public function __construct(private LandingSeoService $seo) {}
+    public function __construct(
+        private LandingSeoService $seo,
+        private LandingSnapshotService $snapshots,
+    ) {}
 
     /**
      * robots.txt dinamis agar aturan indexability mengikuti konfigurasi.
@@ -34,7 +38,7 @@ class SeoController extends Controller
         return response()
             ->view('seo.sitemap', [
                 'url' => $this->seo->homeUrl(),
-                'lastmod' => $this->seo->meta()['updated_at'],
+                'lastmod' => $this->seo->meta($this->snapshots->load())['updated_at'],
             ])
             ->withHeaders([
                 'Content-Type' => 'application/xml; charset=UTF-8',

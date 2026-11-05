@@ -19,8 +19,8 @@ masing-masing yang didokumentasikan di bawah ini.
 | Wilayah | `ref.mst_wilayah` level 3, prefix kode `2208` (Kabupaten Karangasem) |
 | Sekolah | `dbo.sekolah.Soft_delete = 0 AND keaktifan = 1` |
 | Rombel | `dbo.rombongan_belajar.Soft_delete = 0`, `jenis_rombel = 1` (Kelas), semester terbaru atau `:semester` |
-| Peserta didik | `count(DISTINCT btrim(nisn))` dengan NISN valid 10 digit dari anggota rombel Kelas; ID tanpa NISN valid dikecualikan |
-| PTK | `count(DISTINCT ptk_id)` dengan penugasan induk (`ptk_induk = 1`), tidak keluar, dan aktif minimal satu bulan semester atau TMT sejak awal bulan semester sampai tanggal snapshot |
+| Peserta didik | `count(DISTINCT btrim(nisn))` dengan NISN valid 10 digit dari registrasi aktif (`dbo.registrasi_peserta_didik.Soft_delete = 0 AND jenis_keluar_id IS NULL`) di sekolah aktif; ID tanpa NISN valid dikecualikan |
+| PTK | `count(DISTINCT ptk_id)` dengan penugasan induk (`ptk_induk = 1`), tidak keluar, dan `qc.vld_ptk.aktif = 1` di sekolah aktif (definisi kartu dashboard Q-EXE-04) |
 | Kecamatan | 8 kecamatan; jumlah selain 8 membuat snapshot ditolak |
 
 Query juga menampilkan pembanding agar definisi tidak tersembunyi:
@@ -28,32 +28,41 @@ Query juga menampilkan pembanding agar definisi tidak tersembunyi:
 - jumlah **semua** sekolah vs sekolah aktif;
 - sekolah yang memiliki rombel Kelas pada semester terpilih;
 - jumlah **semua jenis** rombel vs rombel Kelas;
-- jumlah anggota rombel Kelas vs peserta didik unik;
+- jumlah anggota rombel Kelas (diagnostik) vs peserta didik unik dari registrasi aktif;
 - jumlah peserta didik per kecamatan (bisa lebih besar dari angka unik karena
   seorang peserta didik dapat tercatat di lebih dari satu kecamatan);
 - kualitas NISN: NISN kosong, tidak valid, dan NISN ganda;
-- PTK: total penugasan induk, aktif semester, aktif dengan TMT, dan PTK non-induk;
+- PTK: total penugasan induk, PTK aktif `qc.vld_ptk`, serta diagnostik aktif semester/TMT dan PTK non-induk;
 - bentuk pendidikan yang benar-benar masuk scope.
 
-> Status data saat dokumen ini dibuat: dump menunjukkan **843 sekolah total**
-> dan **604 sekolah aktif** (`Soft_delete=0 AND keaktifan=1`). Angka **634**
-> sekolah aktif yang disebut sebagai angka resmi belum dapat direproduksi dari
-> dump tersebut. **604 diterima sebagai scope snapshot saat ini**; jangan ubah
-> tanpa bukti/data Pusdatin baru.
+> Status data per **29 Oktober 2026** (pull terakhir; snapshot diterapkan
+> **5 November 2026**): dump menunjukkan **843 sekolah total** dan **604 sekolah
+> aktif** (`Soft_delete=0 AND keaktifan=1`). Angka **634** sekolah aktif yang
+> disebut sebagai angka resmi belum dapat direproduksi dari dump tersebut.
+> **604 diterima sebagai scope snapshot saat ini**; jangan ubah tanpa bukti/data
+> Pusdatin baru.
 >
-> Angka acuan snapshot: **604** satuan pendidikan, **64.086** peserta didik,
-> **3.482** rombel Kelas, dan **4.044** PTK. Di balik angka tersebut: 64.495 ID
-> peserta didik di rombel Kelas, 406 NISN kosong, 0 NISN tidak valid, dan 3
-> nilai NISN ganda (6 ID). Rombel semua jenis berjumlah 5.077. PTK penugasan
-> induk berjumlah 4.981; 4.036 aktif semester, 4.044 setelah ditambah TMT sejak
-> awal bulan semester (8 PTK baru: 4 pada Juli dan 4 setelahnya), dan 124 PTK
-> hanya non-induk (20 aktif) tidak masuk kartu.
+> Angka acuan snapshot: **604** satuan pendidikan, **68.983** peserta didik,
+> **3.482** rombel Kelas, dan **4.977** PTK. Definisi peserta didik dan PTK
+> sengaja disamakan dengan kartu dashboard publik (Q-EXE-03/Q-EXE-04) agar
+> landing dan dashboard tidak saling bertentangan.
 >
-> Catatan rekonsiliasi PTK: angka **4.044** dapat direproduksi dengan aturan TMT
-> sejak awal bulan semester (1 Juli 2026) sampai tanggal snapshot. Jendela 30
-> hari literal sebelum tanggal mulai semester menghasilkan **4.059**, sehingga
-> bukan angka yang dipakai. Angka **4.044** adalah angka yang disetujui untuk
-> kartu.
+> Di balik angka tersebut: 70.381 ID peserta didik dengan registrasi aktif,
+> 1.372 NISN kosong, 2 NISN tidak valid, 69.007 ID dengan NISN valid, dan 23
+> nilai NISN ganda (24 ID tambahan) sehingga menjadi 68.983 NISN unik. Jumlah
+> per kecamatan 69.012 (lebih besar karena 29 NISN tercatat di lebih dari satu
+> kecamatan). Anggota rombel Kelas berjumlah 64.621 dan semua jenis rombel
+> 5.098; keduanya hanya pembanding diagnostik, bukan angka kartu.
+>
+> PTK penugasan induk dengan `qc.vld_ptk.aktif = 1` berjumlah 4.977. Pembanding
+> diagnostik: 4.033 aktif semester, 4.037 aktif semester + TMT, 4.042 aktif
+> dengan TMT sejak awal bulan semester, dan 129 PTK hanya non-induk (20 aktif)
+> tidak masuk kartu. Angka 4.042 **bukan** angka kartu; kartu memakai definisi
+> dashboard (4.977).
+>
+> Rincian pembanding terbaru selalu ada di artifact
+> `storage/app/landing/review-*.md`; bandingkan dengan artifact terakhir
+> sebelum menyalin angka dari dokumen ini.
 
 ## 2. Prasyarat
 
@@ -125,12 +134,15 @@ Setujui hanya setelah semua poin berikut jelas:
       (PKBM/SKB), atau hanya jenjang formal.
 - [ ] Peserta didik memakai NISN valid 10 digit yang unik; NISN kosong, tidak
       valid, dan ganda sudah diperiksa; selisih jumlah per kecamatan dijelaskan.
-- [ ] PTK memakai penugasan induk, bukan penempatan; status keluar dan aturan
-      aktif semester/TMT sejak awal bulan semester sudah diperiksa.
+- [ ] PTK memakai penugasan induk, bukan penempatan; status keluar dan
+      `qc.vld_ptk.aktif = 1` (definisi dashboard) sudah diperiksa. Pembanding
+      aktif semester/TMT hanya diagnostik dan bukan angka kartu.
 - [ ] PTK non-induk pada pembanding sudah dipahami dan tidak termasuk kartu.
 - [ ] Tepat 8 kecamatan dan tidak ada wilayah yang hilang.
-- [ ] Angka dibandingkan dengan dashboard publik/sumber resmi. Jika berbeda,
-      catat penyebabnya sebelum apply.
+- [ ] Angka kartu sudah sama dengan dashboard publik (Q-EXE-01..04). Jika
+      berbeda, jangan apply sebelum penyebabnya dijelaskan.
+- [ ] Tanggal **Data per** berasal dari `sync.pull_log` terakhir, bukan
+      `last_sync` baris.
 - [ ] Data sudah berasal dari sinkronisasi Pusdatin terbaru.
 
 ## 5. Setelah apply
@@ -186,14 +198,22 @@ data pribadi.
 
 ## 8. Hubungan dengan dashboard
 
-Dashboard Metabase dan landing masih memakai definisi yang berbeda:
+Landing memakai definisi yang sama dengan kartu headline dashboard publik:
 
-- `metrics.v_rombongan_belajar` menghitung **5.077** semua jenis rombel;
-  landing menghitung **3.482** rombel Kelas.
-- `metrics.v_ptk` menghitung **5.170** penempatan PTK; landing menghitung
-  **4.044** PTK aktif dengan penugasan induk.
+- **Q-EXE-01 Total Sekolah Aktif**: 604.
+- **Q-EXE-02 Total Rombel Aktif (Kelas)**: 3.482.
+- **Q-EXE-03 Total Peserta Didik Aktif**: 68.983 (registrasi aktif, NISN valid
+  10 digit).
+- **Q-EXE-04 Total PTK Aktif**: 4.977 (penugasan induk, `qc.vld_ptk.aktif = 1`).
+
+Perbedaan dengan `metrics.v_*` (bukan kartu dashboard):
+
+- `metrics.v_rombongan_belajar` menghitung **5.098** semua jenis rombel;
+  kartu/landing menghitung **3.482** rombel Kelas.
+- `metrics.v_ptk` menghitung **5.172** penempatan PTK; kartu/landing
+  menghitung **4.977** PTK induk aktif.
 - `metrics.v_peserta_didik` masih bermasalah dan belum dipakai sebagai acuan.
 
-Snapshot ini adalah sumber yang direview untuk landing. Penyelarasan kartu
-dashboard dan generasi kartu massal dari query yang sama dikerjakan terpisah
-setelah definisi data disetujui.
+Landing adalah snapshot, dashboard adalah live view. Keduanya membaca mirror
+yang sama, sehingga angka kartu harus sama saat snapshot dibuat. Jika berbeda,
+periksa `sync.pull_log`, cache Metabase, dan definisi kartu sebelum apply.
